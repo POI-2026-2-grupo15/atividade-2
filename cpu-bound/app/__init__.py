@@ -1,0 +1,1 @@
+"""Serviço acadêmico cpu-bound."""
