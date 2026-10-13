@@ -1,9 +1,9 @@
 # cpu-bound
 
-API acadêmica para cálculo e verificação de SHA-256 e experimentos de demanda,
-desempenho e provisionamento. Python 3.10+, FastAPI e Uvicorn; sem banco ou
-serviços externos. Docker é opcional para o piloto. O projeto está na pasta
-`cpu-bound/` deste repositório. Execute os comandos abaixo a partir dela.
+API acadêmica para cálculo e verificação de SHA-256 e experimentos de
+desempenho e provisionamento no VirtualBox. Python 3.10+, FastAPI e Uvicorn;
+sem banco ou serviços externos. O projeto está na pasta `cpu-bound/` deste
+repositório. Execute os comandos abaixo a partir dela.
 
 ## Arquitetura e perfil computacional
 
@@ -19,7 +19,7 @@ Hospedeiro: Locust → rede/VirtualBox → VM: Uvicorn (N workers)
 - `app/limits.py`: limite do corpo recebido e admissão por worker.
 - `load_tests/locustfile.py`: carga constante por requisição.
 - `scripts/`: execução headless e monitoramento.
-- `tests/`: testes pequenos; `results/`: saídas ignoradas pelo Git.
+- `tests/`: testes pequenos; `results/`: dados brutos e figuras dos experimentos.
 
 O benchmark prepara uma sequência de bytes `0..255` repetida até preencher o
 buffer. Cada iteração calcula SHA-256 do **mesmo buffer**. Um acumulador SHA-256
@@ -166,46 +166,25 @@ vCPU eles disputam CPU, aumentam trocas de contexto, RAM e possivelmente latênc
 Mais workers não implica mais desempenho. Estudar workers é outro experimento:
 varie apenas workers, mantendo vCPUs, RAM e carga constantes.
 
-## Piloto opcional com Docker
+## Experimento VirtualBox e gráficos
 
-O Docker permite ensaiar as quotas de CPU antes de configurar o VirtualBox.
-No hospedeiro Linux, instale também as dependências de análise e construa a
-imagem:
+O [relatório técnico consolidado](docs/relatorio-cpu-bound.md) reúne a
+análise dos cenários de 1, 2, 4, 6 e 8 vCPUs, os dados brutos de
+`results/vbox-*`, os seis gráficos, o roteiro de reprodução da VM e as
+capturas de tela. Ele é o documento único de entrega da aplicação CPU-bound.
 
-```bash
-source .venv/bin/activate
-python -m pip install -r requirements-analysis.txt
-docker build -t cpu-bound:experiment .
-lscpu -e=CPU,CORE,SOCKET
-```
-
-A [curva de demanda medida](docs/relatorio-final.md) usou 2, 4, 6 e 8 CPUs,
-1 GiB de RAM e oito workers fixos. Para repetir a matriz com um **diretório
-novo** de saída:
+No hospedeiro, instale as dependências de análise e gere novamente as figuras:
 
 ```bash
-OUTPUT_DIR=results/nova-curva bash scripts/run_demand_curve.sh
-python scripts/plot_demand_curve.py --input results/nova-curva
+.venv/bin/python -m pip install -r requirements-analysis.txt
+.venv/bin/python scripts/plot_virtualbox_results.py \
+  --input results --output results/virtualbox-graficos
 ```
 
-A execução padrão cruza 1, 2, 4, 8, 16 e 32 usuários com as quatro quotas,
-30 segundos por ponto. O Locust fica no hospedeiro, separado do container.
-A CPU do container é medida pelos contadores do cgroup, e sua utilização é
-dividida pela quota para comparação na escala de 0 a 100%. O comando usa o
-pool de CPUs lógicas 2–15 e reserva a CPU lógica 0 para o gerador: ajuste
-`SERVER_CPUS` e `GENERATOR_CPU` após conferir a topologia local. Por padrão,
-`REQUIRE_AC=1` interrompe a coleta caso o sensor informe uso de bateria.
-
-Os CSVs, os parâmetros efetivos e os logs ficam no diretório de saída.
-O script de gráficos exporta PNG, SVG, PDF e uma tabela consolidada. A
-[metodologia da curva](docs/demand-curve.md) explica as janelas de medição,
-o critério de saturação e as limitações. Para a comparação separada com
-32 usuários fixos, consulte a [matriz de provisionamento](docs/cpu-scaling.md)
-e execute `bash scripts/run_cpu_scaling.sh`.
-
-O container compartilha o kernel e a topologia do hospedeiro. As quotas Docker
-são úteis para o piloto, mas os números devem ser medidos novamente na VM
-VirtualBox para a atividade.
+O comando preserva os dados brutos e grava PNG, SVG, PDF e CSVs em
+`results/virtualbox-graficos/`. A pasta `results/` pode ser adicionada ao Git
+e deve acompanhar o relatório na entrega. Remover a regra do `.gitignore` não
+adiciona nem envia os arquivos automaticamente.
 
 ## Testes de carga — no hospedeiro
 
@@ -329,8 +308,8 @@ Locust pequena e monitor CSV; ela não substitui os experimentos na VM.
 
 Validação realizada no ambiente de desenvolvimento com Python 3.12.3: API com
 dois workers, endpoints HTTP reais, benchmark de 1 MiB × 2, Locust headless e
-monitoramento CSV. A execução adicional no Docker confirmou os 34 testes com
-Python 3.10. O Ubuntu 22.04 e os cenários de provisionamento ainda devem ser
-confirmados na VM do laboratório.
+monitoramento CSV. A VM Ubuntu 22.04 usada no cenário de 1 vCPU passou nos
+34 testes da aplicação; a suíte atual de 49 testes inclui também a análise
+dos resultados VirtualBox.
 Há um aviso de depreciação do alias `BlockingPortal` entre Starlette e AnyIO
 durante os testes, sem falha funcional.
