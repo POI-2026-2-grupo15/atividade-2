@@ -39,7 +39,7 @@ Os endpoints de arquivo leem blocos de 64 KiB e limitam o upload a 16 MiB. O dig
 
 Os testes automatizados cobrem os quatro endpoints, digest conhecido, determinismo do benchmark, processamento integral do buffer, validações, fronteiras de upload e limites do corpo HTTP ([`tests/test_api.py`](../tests/test_api.py), [`tests/test_hashing.py`](../tests/test_hashing.py)). O roteiro experimental registra **34 testes da aplicação aprovados e um aviso de depreciação** na VM de 1 vCPU; essa contagem se refere à suíte disponível naquele clone, não aos testes de análise acrescentados no hospedeiro posteriormente. [PENDENTE: captura ou log persistido da execução de `pytest` dentro da VM para evidência visual independente da contagem.] A captura abaixo comprova a API acessível pelo encaminhamento NAT, mas não substitui a evidência da suíte.
 
-![Respostas de health e benchmark formatadas com jq no hospedeiro](../evidencias/vm-1cpu/manual-02-api.png)
+![Respostas de health e benchmark formatadas com jq no hospedeiro](../evidencias/manual-02-api.png)
 
 **Figura 2 — API em funcionamento.** A resposta de `/health` contém `status: ok`; `/benchmark` apresenta o algoritmo, os parâmetros 10 MiB e 100 iterações, o total lógico de 1.000 MiB, o tempo de execução e o digest. O tempo da chamada isolada exibida não é a latência HTTP sob a carga concorrente do Locust.
 
@@ -62,19 +62,19 @@ Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. 
 
 A criação da VM utilizou o VDI fornecido para a atividade, selecionado na interface do VirtualBox. As capturas registram 1 vCPU e 1.024 MiB para a VM de demonstração, além das regras NAT TCP `127.0.0.1:2222 → VM:22` (SSH) e `127.0.0.1:8000 → VM:8000` (API). O VDI e as capturas documentam o procedimento; [PENDENTE: captura da configuração final de vCPU/RAM de cada uma das VMs de 2, 4, 6 e 8 vCPUs, caso seja exigida evidência visual individual.] Os inventários textuais registram as contagens de vCPU desses cenários.
 
-![1 vCPU e 1024 MiB definidos na criação da VM](../image-2.png)
+![1 vCPU e 1024 MiB definidos na criação da VM](../evidencias/configuracao-hardware.png)
 
 **Figura 3 — Configuração da VM de 1 vCPU.** A interface mostra 1 processador e 1.024 MiB; trata-se da etapa de criação, complementada pela conferência dentro do sistema convidado na Figura 6.
 
-![Seleção do VDI na criação da VM](../image-3.png)
+![Seleção do VDI na criação da VM](../evidencias/escolhendo-vdi.png)
 
 **Figura 4 — Disco da VM.** A captura mostra a seleção do VDI disponibilizado para a atividade; ela não comprova, isoladamente, que a VM já iniciou ou que os testes rodaram.
 
-![Regras NAT para SSH e API](../image-4.png)
+![Regras NAT para SSH e API](../evidencias/portas.png)
 
 **Figura 5 — Encaminhamento de portas NAT.** As regras permitem acessar SSH pela porta 2222 e a API pela 8000 no loopback do hospedeiro; não expõem esses serviços para outras interfaces por essa configuração.
 
-![Terminal da VM com usuário, hostname, nproc e free](../evidencias/vm-1cpu/manual-01-configuracao.png)
+![Terminal da VM com usuário, hostname, nproc e free](../evidencias/manual-01-configuracao.png)
 
 **Figura 6 — Conferência dentro da VM de 1 vCPU.** O prompt `osboxes@osboxes`, `nproc=1` e `free -m` registram a instância efetivamente iniciada. A captura foi feita após a bateria e mostra 26 MiB de swap ocupado naquele instante; a análise de swap **durante** os testes usa os arquivos `vmstat`, não essa imagem.
 
@@ -359,15 +359,15 @@ taskset -c 0 .venv/bin/python -m locust \
   2>&1 | tee results/NOVA-CAPTURA-1CPU/locust.log
 ```
 
-![Processos Python no top da VM durante a rodada visual extra](../evidencias/vm-1cpu/manual-03-top-carga.png)
+![Processos Python no top da VM durante a rodada visual extra](../evidencias/manual-03-top-carga.png)
 
 **Figura 13 — `top` na VM durante a carga visual extra.** `PID` identifica os processos; `USER=osboxes` e `COMMAND=python` permitem reconhecê-los; `RES` e `%MEM` indicam memória residente; `%CPU` é a utilização instantânea de cada processo e `TIME+` o tempo de CPU acumulado. Os três processos próximos de 31,1% e outro de 5,0% somam aproximadamente 98% de **uma** vCPU naquele instante. As médias oficiais de CPU vêm dos CSVs, não desse print.
 
-![Tabela do Locust durante a rodada visual extra](../evidencias/vm-1cpu/manual-04-locust-carga.png)
+![Tabela do Locust durante a rodada visual extra](../evidencias/manual-04-locust-carga.png)
 
 **Figura 14 — Locust durante a rodada visual extra.** `POST /benchmark` é o endpoint sob carga; `# reqs` passou de 98 a 102 nas linhas capturadas e `# fails` permaneceu em zero. `Avg`, `Min`, `Max` e `Med` são tempos HTTP em ms; `req/s` é a taxa estimada. Os 32 usuários virtuais vêm do comando, enquanto `iterations=100` significa cem hashes por **requisição**, não cem requisições.
 
-![Percentis Locust da rodada visual extra](../evidencias/vm-1cpu/manual-05-locust-p95.png)
+![Percentis Locust da rodada visual extra](../evidencias/manual-05-locust-p95.png)
 
 **Figura 15 — Percentis aproximados da rodada visual extra.** Com 106 requisições no momento da captura, o Locust mostrou mediana de cerca de 21.000 ms, p95 de 24.000 ms e p99 de 25.000 ms. Esses números arredondados **não** entram no resumo das 15 repetições oficiais.
 
@@ -391,7 +391,7 @@ ls -lh results/vbox-1cpu-20261013T2036Z
 ls -lh results/vbox-1cpu-20261013T2036Z/rep1
 ```
 
-![Listagem dos resultados brutos da VM de 1 vCPU](../evidencias/vm-1cpu/manual-06-resultados-vm.png)
+![Listagem dos resultados brutos da VM de 1 vCPU](../evidencias/manual-06-resultados-vm.png)
 
 **Figura 16 — Presença dos dados brutos na VM.** O prompt `osboxes@osboxes` identifica o convidado. A captura demonstra arquivos, não a execução de uma transferência naquele momento.
 
@@ -441,4 +441,4 @@ No **hospedeiro**, com os cinco diretórios `results/vbox-*` presentes, instale 
 
 O script lê os dados brutos sem modificá-los, audita 19 execuções, seleciona 15 e grava seis figuras em PNG, SVG e PDF, além de `repeticoes.csv`, `resumo_por_cpu.csv` e `auditoria.csv`. As figuras exibidas neste documento são os PNGs já existentes. Os logs finais e CSVs permitem conferir solicitações, falhas, séries temporais e recursos; a seleção das repetições está implementada em [`scripts/virtualbox_analysis.py`](../scripts/virtualbox_analysis.py) e coberta por [`tests/test_virtualbox_analysis.py`](../tests/test_virtualbox_analysis.py) e [`tests/test_plot_virtualbox_results.py`](../tests/test_plot_virtualbox_results.py). Esses testes de análise foram acrescentados ao repositório local depois da suíte de 34 testes registrada no clone da VM de 1 vCPU.
 
-Para que este Markdown seja renderizado com as figuras e os resultados sejam auditáveis após a entrega, inclua os arquivos de `results/vbox-*`, `results/virtualbox-graficos/`, `evidencias/vm-1cpu/` e as capturas de configuração juntamente com o documento. A remoção de uma regra de `.gitignore` torna os arquivos elegíveis ao versionamento, mas **não** os adiciona automaticamente ao Git.
+Para que este Markdown seja renderizado com as figuras e os resultados sejam auditáveis após a entrega, inclua os arquivos de `results/vbox-*`, `results/virtualbox-graficos/`, `evidencias` e as capturas de configuração juntamente com o documento. A remoção de uma regra de `.gitignore` torna os arquivos elegíveis ao versionamento, mas **não** os adiciona automaticamente ao Git.
