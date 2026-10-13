@@ -1,0 +1,152 @@
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started parent process [1009]
+INFO:     Started server process [1016]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1011]
+INFO:     Waiting for application startup.
+INFO:     Started server process [1012]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Application startup complete.
+INFO:     Started server process [1018]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1013]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1015]
+INFO:     Waiting for application startup.
+INFO:     Started server process [1017]
+INFO:     Application startup complete.
+INFO:     Waiting for application startup.
+INFO:     Started server process [1014]
+INFO:     Application startup complete.
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Received SIGTERM, exiting.
+INFO:     Terminated child process [1011]
+INFO:     Terminated child process [1012]
+INFO:     Terminated child process [1013]
+INFO:     Terminated child process [1014]
+INFO:     Terminated child process [1015]
+INFO:     Shutting down
+INFO:     Terminated child process [1016]
+INFO:     Terminated child process [1017]
+INFO:     Terminated child process [1018]
+INFO:     Waiting for child process [1011]
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1012]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1017]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1011]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1015]
+INFO:     Waiting for child process [1012]
+INFO:     Waiting for child process [1013]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1013]
+INFO:     Waiting for child process [1014]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1014]
+INFO:     Waiting for child process [1015]
+INFO:     Waiting for child process [1016]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1016]
+INFO:     Waiting for child process [1017]
+INFO:     Waiting for child process [1018]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1018]
+INFO:     Stopping parent process [1009]
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started parent process [995]
+INFO:     Started server process [1000]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [999]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1002]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1004]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1003]
+INFO:     Waiting for application startup.
+INFO:     Started server process [1006]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Application startup complete.
+INFO:     Started server process [1001]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1005]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Received SIGTERM, exiting.
+INFO:     Terminated child process [999]
+INFO:     Terminated child process [1000]
+INFO:     Terminated child process [1001]
+INFO:     Terminated child process [1002]
+INFO:     Terminated child process [1003]
+INFO:     Terminated child process [1004]
+INFO:     Terminated child process [1005]
+INFO:     Terminated child process [1006]
+INFO:     Waiting for child process [999]
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1001]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1005]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1000]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1004]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1006]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1003]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1002]
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [999]
+INFO:     Waiting for child process [1000]
+INFO:     Waiting for child process [1001]
+INFO:     Waiting for child process [1002]
+INFO:     Waiting for child process [1003]
+INFO:     Waiting for child process [1004]
+INFO:     Waiting for child process [1005]
+INFO:     Waiting for child process [1006]
+INFO:     Stopping parent process [995]

@@ -1,0 +1,116 @@
+2026-10-13T14:52:52Z
+ Static hostname: osboxes
+       Icon name: computer-vm
+         Chassis: vm
+      Machine ID: d65d2c9bb0c644bb897a44eb78fa79c1
+         Boot ID: b18ab2afcfb74e9faae37fac84f9a274
+  Virtualization: oracle
+Operating System: Ubuntu 22.04.5 LTS
+          Kernel: Linux 5.15.0-198-generic
+    Architecture: x86-64
+ Hardware Vendor: innotek GmbH
+  Hardware Model: VirtualBox
+Linux osboxes 5.15.0-198-generic #208-Ubuntu SMP Fri Sep 4 10:22:38 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+Architecture:                            x86_64
+CPU op-mode(s):                          32-bit, 64-bit
+Address sizes:                           48 bits physical, 48 bits virtual
+Byte Order:                              Little Endian
+CPU(s):                                  8
+On-line CPU(s) list:                     0-7
+Vendor ID:                               AuthenticAMD
+Model name:                              AMD Ryzen 5 5500
+CPU family:                              25
+Model:                                   80
+Thread(s) per core:                      1
+Core(s) per socket:                      8
+Socket(s):                               1
+Stepping:                                0
+BogoMIPS:                                7186.22
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt rdtscp lm constant_tsc rep_good nopl nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 sse4_1 sse4_2 x2apic movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy cr8_legacy abm sse4a misalignsse 3dnowprefetch vmmcall fsgsbase bmi1 avx2 bmi2 invpcid rdseed adx clflushopt sha_ni arat sme
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+L1d cache:                               256 KiB (8 instances)
+L1i cache:                               256 KiB (8 instances)
+L2 cache:                                4 MiB (8 instances)
+L3 cache:                                128 MiB (8 instances)
+NUMA node(s):                            1
+NUMA node0 CPU(s):                       0-7
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Mitigation; safe RET
+Vulnerability Spec store bypass:         Not affected
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Vulnerable: Clear CPU buffers attempted, no microcode
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+               total        used        free      shared  buff/cache   available
+Mem:           955Mi       545Mi       155Mi       1.0Mi       254Mi       266Mi
+Swap:           12Gi          0B        12Gi
+NAME      TYPE      SIZE USED PRIO
+/swap.img file      3.8G   0B   -2
+/dev/sda4 partition   9G   0B   -3
+Python 3.10.12
+annotated-types==0.8.0
+anyio==4.15.1
+bidict==0.23.1
+blinker==1.9.0
+brotli==1.2.0
+certifi==2026.7.22
+charset-normalizer==3.5.2
+click==8.5.0
+ConfigArgParse==1.8.0
+exceptiongroup==1.3.1
+fastapi==0.115.14
+Flask==3.1.3
+flask-cors==6.0.5
+Flask-Login==0.6.3
+gevent==25.9.1
+geventhttpclient==2.4.0
+greenlet==3.5.6
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.20
+iniconfig==2.3.1
+itsdangerous==2.2.0
+Jinja2==3.1.6
+locust==2.37.14
+locust-cloud==1.30.0
+MarkupSafe==3.0.4
+msgpack==1.2.3
+packaging==26.3
+platformdirs==4.12.4
+pluggy==1.6.0
+psutil==7.0.0
+pydantic==2.11.7
+pydantic_core==2.33.2
+Pygments==2.21.0
+pytest==8.4.1
+python-engineio==4.14.0
+python-multipart==0.0.20
+python-socketio==5.17.0
+pyzmq==27.2.0
+requests==2.34.2
+simple-websocket==1.1.0
+starlette==0.46.2
+tomli==2.5.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+urllib3==2.8.0
+uvicorn==0.34.3
+websocket-client==1.9.2
+Werkzeug==3.1.9
+wsproto==1.3.2
+zope.event==6.2
+zope.interface==8.6
+OpenSSL 3.0.2 15 Mar 2022 (Library: OpenSSL 3.0.2 15 Mar 2022)
+41f0becccb3d0e7ccf4d8c4127ad975a212f17db

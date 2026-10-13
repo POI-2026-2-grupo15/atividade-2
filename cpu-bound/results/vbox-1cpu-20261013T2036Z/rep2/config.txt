@@ -1,0 +1,9 @@
+timestamp_utc=2026-10-13T20:40:15Z
+host=http://127.0.0.1:8000
+users=32
+spawn_rate=32
+duration=60s
+data_size_mb=10
+iterations=100
+wait_seconds=0
+Python 3.12.3

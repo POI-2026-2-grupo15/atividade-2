@@ -1,0 +1,76 @@
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started parent process [1048]
+INFO:     Started server process [1053]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1052]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1054]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1057]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1055]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1051]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1050]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Started server process [1056]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Received SIGTERM, exiting.
+INFO:     Terminated child process [1050]
+INFO:     Terminated child process [1051]
+INFO:     Terminated child process [1052]
+INFO:     Terminated child process [1053]
+INFO:     Terminated child process [1054]
+INFO:     Terminated child process [1055]
+INFO:     Terminated child process [1056]
+INFO:     Terminated child process [1057]
+INFO:     Waiting for child process [1050]
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Waiting for application shutdown.
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1053]
+INFO:     Application shutdown complete.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1055]
+INFO:     Finished server process [1051]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1050]
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1056]
+INFO:     Waiting for child process [1051]
+INFO:     Waiting for child process [1052]
+INFO:     Waiting for application shutdown.
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Waiting for application shutdown.
+INFO:     Finished server process [1052]
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1057]
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1054]
+INFO:     Waiting for child process [1053]
+INFO:     Waiting for child process [1054]
+INFO:     Waiting for child process [1055]
+INFO:     Waiting for child process [1056]
+INFO:     Waiting for child process [1057]
+INFO:     Stopping parent process [1048]
