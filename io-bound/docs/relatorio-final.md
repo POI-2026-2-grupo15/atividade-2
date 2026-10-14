@@ -120,6 +120,3 @@ lote) ou distribuir a carga entre discos ou máquinas.
   o disco é compartilhado com o macOS por meio da VM do Docker Desktop. Os
   valores de iowait e disco são da VM do Docker inteira.
 - O Locust compartilha a máquina física com a API.
-- O SSD do hospedeiro é muito mais rápido que o disco virtual (VDI) do
-  VirtualBox no LCC. Na VM, espera-se que o disco sature antes e que o efeito
-  da CPU apareça menos. Os números absolutos não se transferem.
