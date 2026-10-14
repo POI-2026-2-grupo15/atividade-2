@@ -1,14 +1,16 @@
 # Relatório técnico Aplicação CPU-bound
 
 **Estudo:** serviço de hashing SHA-256 e avaliação de provisionamento de CPU em máquinas virtuais VirtualBox.
+
 **Data dos registros experimentais:** 13 e 14 de outubro de 2026.
+
 Este documento reúne o relatório acadêmico e o procedimento de reprodução. Abrange somente a aplicação CPU-bound.
 
 ## 1. Introdução
 
-A atividade investiga como o provisionamento de recursos de uma máquina virtual afeta o desempenho de uma aplicação submetida a carga. A análise conjunta de utilização de recursos, vazão e tempo de resposta permite distinguir uma melhoria de capacidade de uma mera mudança no número de processadores atribuídos. Para estudar esse efeito, foi desenvolvido um serviço HTTP que executa hashing SHA-256 repetido, uma carga simulada com trabalho computacional parametrizável e pouca entrada/saída durante o cálculo.
+A atividade investiga como o provisionamento de recursos de uma máquina virtual afeta o desempenho de uma aplicação submetida a uma grande quantidade de requisições. A análise conjunta de utilização de recursos, vazão e tempo de resposta permite distinguir uma melhoria de capacidade de uma mudança no número de CPUs alocados. Para estudar esse efeito, foi desenvolvido um serviço HTTP que executa hashing SHA-256 repetido.
 
-O objetivo geral é caracterizar o comportamento desse serviço sob carga e comparar cenários de provisionamento de CPU no VirtualBox. Para isso, busca-se implementar e validar uma carga reproduzível, registrar o ambiente e o procedimento de medição, comparar utilização de CPU e memória, vazão, latência e falhas HTTP, e avaliar os limites das inferências possíveis a partir dos dados coletados.
+O objetivo geral é caracterizar o comportamento desse serviço sob carga e comparar cenários de provisionamento de CPU no VirtualBox. Para isso, busca-se comparar utilização de CPU e memória, vazão, latência e falhas HTTP, e avaliar os limites das inferências possíveis a partir dos dados coletados.
 
 Os resultados são apresentados na Seção 5.
 
@@ -37,10 +39,6 @@ Hospedeiro: SSH 127.0.0.1:2222 ─────────────── NAT
 
 **Tabela 1 — Endpoints HTTP da aplicação.** Fonte: [`app/main.py`](../app/main.py) e modelos em [`app/schemas.py`](../app/schemas.py).
 
-No `/benchmark`, o buffer é construído em memória pela repetição da sequência de bytes de 0 a 255 até o tamanho solicitado. Em cada iteração é calculado um novo SHA-256 do **mesmo buffer inteiro**; os digests binários são incorporados a um hash agregador que produz o resultado final. O serviço informa separadamente o tempo de preparar o buffer e o tempo do laço de hashing. Os parâmetros controlam o trabalho: `data_size_mb × iterations` expressa o volume lógico processado, não a quantidade de RAM simultaneamente alocada. No perfil experimental, 10 MiB × 100 iterações correspondem a 1.000 MiB processados logicamente por requisição. O buffer não é lido de disco durante o laço, e não há escrita de arquivo por requisição. Trata-se de uma **carga sintética**, não de uma aplicação de produção com arquivos reais ou uma simulação integral de I/O.
-
-Os endpoints de arquivo leem blocos de 64 KiB e limitam o upload a 16 MiB. O digest esperado em `/verify` deve ter 64 caracteres hexadecimais e a comparação emprega `hmac.compare_digest`; isso compara os valores. Para `/benchmark`, o esquema exige inteiros estritos, 1–32 MiB, 1–1.000 iterações e produto de no máximo 8.192 MiB. O middleware limita o corpo a 17 MiB nos endpoints multipart, a 4 KiB nos demais e a oito requisições admitidas simultaneamente **por worker**; tamanhos excessivos são rejeitados com HTTP 413 e excesso de concorrência pode gerar HTTP 503. Restrições de esquema produzem erro de validação. Esses limites reduzem o risco de consumo descontrolado de recursos, mas a presença de oito workers não torna ilimitada a capacidade da VM.
-
 O endpoint `/benchmark` executa o cálculo síncrono diretamente no worker que recebeu a requisição; enquanto o cálculo ocorre, esse worker não atende outra requisição. Os oito processos Uvicorn permitem cálculos simultâneos em processos separados. O tempo interno retornado pela API mede o cálculo, enquanto a latência HTTP do Locust também inclui espera e transporte. Os testes automatizados da aplicação e da análise podem ser executados com `.venv/bin/python -m pytest -q` após instalar `requirements.txt` e `requirements-analysis.txt`.
 
 ![Respostas de health e benchmark formatadas com jq no hospedeiro](../evidencias/manual-02-api.png)
@@ -49,7 +47,7 @@ O endpoint `/benchmark` executa o cálculo síncrono diretamente no worker que r
 
 ## 3. Ambiente experimental
 
-Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. Em todas, a memória atribuída foi de 1.024 MiB e a API foi iniciada com oito workers Uvicorn. O hospedeiro utilizou um AMD Ryzen 5 5500 com seis núcleos físicos e 12 threads. A configuração de 8 vCPUs compartilha os recursos desse hospedeiro com o sistema operacional e o gerador de carga; portanto, os resultados não representam oito núcleos físicos exclusivos.
+Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. Em todas, a memória atribuída foi de 1.024 MiB e a API foi iniciada com oito workers Uvicorn.
 
 | Componente | Configuração comprovada | Evidência |
 | --- | --- | --- |
@@ -58,8 +56,6 @@ Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. 
 | VirtualBox no hospedeiro | VirtualBox 7.2.20r175154. | [`host-inventory.txt`](../results/demand-vbox-8cpu-20261014T104931Z-504345/host-inventory.txt). |
 | Sistema convidado | Ubuntu Server 22.04.5 LTS; kernel 5.15.0-198-generic nos inventários de 2–8 vCPUs. | [`inventory.txt` de 2 vCPUs](../results/vbox-2cpu-20261013T140512Z/inventory.txt) e inventários dos demais cenários. |
 | vCPUs e RAM da VM | 1, 2, 4, 6 ou 8 vCPUs; 1.024 MiB atribuídos. | Captura de configuração de 1 vCPU, `nproc` na VM e inventários/arquivos de resultados. |
-| Python na VM | 3.10.12 em 1–8 vCPUs. | `guest-inventory.txt` em cada bateria definitiva. |
-| API | FastAPI 0.115.14, Uvicorn 0.34.3, Pydantic 2.11.7; oito workers. | [`requirements.txt`](../requirements.txt), inventários e registros de deploy. |
 | Gerador externo | Locust 2.37.14 em Python 3.12.3, no hospedeiro, fixado à CPU lógica 0. | `config.txt` e `dependencies.txt` das repetições; roteiro de execução. |
 
 **Tabela 2 — Infraestrutura registrada.** Os registros do convidado e do gerador estão separados para não atribuir à máquina física características observadas dentro da VM.
@@ -68,25 +64,17 @@ A criação da VM utilizou o VDI fornecido para a atividade, selecionado na inte
 
 ![1 vCPU e 1024 MiB definidos na criação da VM](../evidencias/configuracao-hardware.png)
 
-**Figura 3 — Configuração da VM de 1 vCPU.** A interface mostra 1 processador e 1.024 MiB; trata-se da etapa de criação, complementada pela conferência dentro do sistema convidado na Figura 6.
+**Figura 3 — Configuração da VM de 1 vCPU.** A interface mostra 1 processador e 1.024 MiB
 
 ![Seleção do VDI na criação da VM](../evidencias/escolhendo-vdi.png)
 
-**Figura 4 — Disco da VM.** A captura mostra a seleção do VDI disponibilizado para a atividade; ela não comprova, isoladamente, que a VM já iniciou ou que os testes rodaram.
+**Figura 4 — Disco da VM.** A captura mostra a seleção do VDI disponibilizado para a atividade
 
 ![Regras NAT para SSH e API](../evidencias/portas.png)
 
-**Figura 5 — Encaminhamento de portas NAT.** As regras permitem acessar SSH pela porta 2222 e a API pela 8000 no loopback do hospedeiro; não expõem esses serviços para outras interfaces por essa configuração.
+**Figura 5 — Encaminhamento de portas NAT.** As regras permitem acessar SSH pela porta 2222 e a API pela 8000 no loopback do hospedeiro
 
-![Terminal da VM com usuário, hostname, nproc e free](../evidencias/manual-01-configuracao.png)
-
-**Figura 6 — Conferência dentro da VM de 1 vCPU.** O prompt `osboxes@osboxes`, `nproc=1` e `free -m` registram a instância efetivamente iniciada. A captura foi feita após a bateria e mostra 26 MiB de swap ocupado naquele instante; a análise de swap **durante** os testes usa os arquivos `vmstat`, não essa imagem.
-
-O código foi clonado por HTTPS na branch `cpu-bound`, para `/home/osboxes/atividade-2-git/cpu-bound`. O serviço foi iniciado em `0.0.0.0:8000`, com oito workers e sem access log. A reprodução dos gráficos e o estado final da VM constam no Apêndice A.
 ## 4. Metodologia experimental
-
-A matriz definitiva cruzou cinco provisionamentos (1, 2, 4, 6 e 8 vCPUs) com cinco demandas (1, 2, 4, 8 e 16 usuários simultâneos). Cada combinação teve três repetições de 120 s, totalizando 75 execuções. Cada usuário do Locust enviou `POST /benchmark` com 10 MiB × 100 iterações de SHA-256, aguardou a resposta e repetiu sem espera adicional. A API permaneceu com oito workers Uvicorn e a VM com 1.024 MiB de RAM. Trata-se de carga fechada: quando a latência cresce, o próprio usuário virtual reduz a frequência de novas chamadas.
-
 | Variável | Valor e controle |
 | --- | --- |
 | Provisionamento | 1, 2, 4, 6 e 8 vCPUs; 1.024 MiB de RAM em todos os cenários. |
@@ -96,25 +84,24 @@ A matriz definitiva cruzou cinco provisionamentos (1, 2, 4, 6 e 8 vCPUs) com cin
 | Medição | Locust e registro individual de respostas no hospedeiro; `monitor.py` e `vmstat` na VM, iniciados antes da carga. |
 | Janelas de comparação | A partir do primeiro registro com todos os usuários ativos: 30 s de aquecimento; descartam-se também os 5 s finais do histórico. Restam 79–80 s efetivos em cada execução. |
 
-**Tabela 3 — Parâmetros da matriz definitiva.** Fontes: manifestos e `config.txt` das cinco [baterias](../results/), conferidos pela [auditoria](../results/demand-vbox-analysis/auditoria.csv).
+**Tabela 3 — Parâmetros da matriz definitiva.**
 
-O [analisador](../scripts/demand_curve_analysis.py) usa a mesma janela por execução para CPU, RAM e respostas. A vazão é o número de respostas **bem-sucedidas concluídas** na janela dividido por sua duração; o total de requisições é o número de respostas concluídas nessa janela. A latência média e o p95 consideram somente respostas bem-sucedidas que começaram e terminaram dentro dela. Logo, o ponto p95 apresentado é a **mediana dos p95 das três repetições**, e não um p95 global nem a média de percentis. A CPU é `system_cpu_percent` do monitor, percentual agregado de toda a VM normalizado à capacidade provisionada (escala 0–100), e não a soma dos workers. A RAM representa a média de bytes usados na VM, convertida para MiB. O `vmstat` registra swap alocada e tráfego de entrada/saída durante a coleta inteira; sem timestamps por amostra nesse arquivo, esses valores são diagnósticos e não médias alinhadas à janela HTTP.
-
-A [auditoria por execução](../results/demand-vbox-analysis/auditoria.csv) verificou manifesto, inventário de vCPUs/RAM, configuração, duração observada, contagens finais do Locust contra `requests.csv`, timestamps, arquivos obrigatórios, cobertura de monitoramento (mínimo de 95% dos segundos da janela), falhas, timeouts e swap. Arquivos ausentes ou vazios, parâmetros divergentes, duração insuficiente, contagens incoerentes ou monitor incompleto invalidariam uma execução; nenhum limiar de vazão, latência ou CPU foi usado para selecionar resultados. Todos os 75 ensaios da matriz passaram. Houve 40.722 respostas concluídas e zero falhas/timeouts nos testes completos de 120 s; na janela comparável, 26.967 respostas e zero falhas. A execução incompleta de 32 usuários em 1 vCPU foi preservada, marcada como **fora da matriz** e excluída. As campanhas anteriores de 32 usuários por 60 s também permanecem arquivadas, sem entrar nas tabelas ou gráficos abaixo.
-
-As séries temporais usam apenas as linhas `Aggregated` do histórico real do Locust. Calcula-se as requisições por segundo(RPS) de cada intervalo observado de 5 s pela **diferença dos contadores cumulativos** nas duas extremidades; não há interpolação de limites ausentes. As três séries de uma mesma combinação são alinhadas por tempo decorrido e resumidas por mediana e amplitude mínimo–máximo. A linha vertical tracejada marca aproximadamente o fim do aquecimento inicial nos gráficos temporais; os limites exatos da janela analítica de cada repetição estão em [`repeticoes.csv`](../results/demand-vbox-analysis/repeticoes.csv).
 
 ## 5. Resultados e discussão
 
-As tabelas [por repetição](../results/demand-vbox-analysis/repeticoes.csv) e [por combinação](../results/demand-vbox-analysis/resumo.csv) reproduzem todos os valores das figuras. Cada ponto dos gráficos de demanda é a mediana de três repetições. As figuras mostram somente as linhas centrais; os mínimos e máximos permanecem nas tabelas derivadas. Todas as métricas quantitativas desta seção se referem à matriz de 120 s, salvo indicação contrária.
+Todos os 75 casos da matriz passaram. Houve 40.722 respostas concluídas e zero falhas/timeouts nos testes completos de 120 s; na janela comparável, 26.967 respostas e zero falhas. A execução incompleta de 32 usuários em 1 vCPU foi preservada, marcada como **fora da matriz** e excluída. As campanhas anteriores de 32 usuários por 60 s também permanecem arquivadas, sem entrar nas tabelas ou gráficos abaixo.
 
 ### 5.1. Efeito da demanda sobre a vazão
 
 ![Vazão mediana e amplitude por demanda e provisionamento](figuras/cpu-bound/vazao-vs-demanda.png)
 
-**Figura 7 — Vazão em função da demanda.** Eixo horizontal: usuários simultâneos; vertical: respostas bem-sucedidas por segundo na janela comparável. Cores identificam o mesmo provisionamento em todos os gráficos de demanda. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+**Figura 7 — Vazão em função da demanda.** Eixo horizontal: usuários simultâneos; vertical: respostas bem-sucedidas por segundo na janela comparável. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-Com apenas um usuário, os cinco cenários ficaram entre 1,81 e 1,86 req/s. Esse perfil oferece, no máximo, uma solicitação em andamento por usuário e não ocupa todos os workers; portanto, mais vCPUs não elevaram materialmente a vazão nesse ponto. Em 1 vCPU, a mediana permaneceu entre 1,81 e 1,82 req/s de 1 a 16 usuários, enquanto o p95 aumentou fortemente. Em 8 vCPUs, a vazão passou de 1,86 req/s com 1 usuário a 12,49 req/s com 16. O patamar de 8 vCPUs ainda cresceu de 11,01 para 12,49 req/s entre 8 e 16 usuários.
+Com apenas um usuário, os cinco cenários ficaram entre 1,81 e 1,86 req/s. Essa quantidade de usuário oferece, no máximo, uma solicitação em andamento por usuário e não ocupa todos os workers portanto, mais vCPUs não elevaram materialmente a vazão nesse ponto.
+
+Com 1 vCPU, a vazão mediana permaneceu entre 1,81 e 1,82 req/s de 1 a 16 usuários. Já o p95 da latência, que é o tempo que 95% das requisições levaram, no máximo, para receber resposta, aumentou fortemente.
+
+Com 8 vCPUs, a vazão passou de 1,86 req/s com 1 usuário a 12,49 req/s com 16. Isso é uma prova clara que o aumento de vCPU é uma boa forma atender mais requisições por segundo.
 
 
 
@@ -126,65 +113,65 @@ Com apenas um usuário, os cinco cenários ficaram entre 1,81 e 1,86 req/s. Esse
 | 8 | 1,82 | 1,86 | 5,54 | 9,24 | 11,01 |
 | 16 | 1,82 | 3,66 | 7,40 | 11,06 | 12,49 |
 
-**Tabela 4 — Vazão mediana (req/s) nas janelas comparáveis.** Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv). Os valores são arredondados a duas casas.
+**Tabela 4 — Vazão mediana (req/s) nas janelas comparáveis.** Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
 Podemos verificar que apesar do aumento de vazão com o aumento de vCPUs para trabalhar, o acrescimo da vazão não é linear.
 
-O cenário de 2 vCPUs não foi monotônico: 3,65 req/s com 2 usuários, cerca de 1,85 com 4 e 8, e 3,66 com 16. Em 4 usuários, as três repetições variaram de 1,85 a 3,66 req/s; em 16 usuários, de 1,86 a 3,67 req/s. A queda não foi descartada como anomalia: os arquivos passaram nos critérios de validade e a variação entre repetições está registrada em `resumo.csv`. CPU, latência e série temporal ajudam a descrevê-la, mas a instrumentação não permite determinar sua causa. Uma hipótese é a distribuição desigual de conexões persistentes entre os processos Uvicorn; o Locust usa `HttpUser`, e cada usuário pode reutilizar sua conexão. Essa hipótese não foi testada por telemetria de conexões por worker.
+Contudo, o caso com 2 vCPU teve resultados diferentes do esperado. Com 3,65 req/s com 2 usuários, cerca de 1,85 com 4 e 8, e 3,66 com 16. Em 4 usuários, as três repetições variaram de 1,85 a 3,66 req/s; em 16 usuários, de 1,86 a 3,67 req/s. A queda não foi descartada como anomalia: os arquivos passaram nos critérios de validade e a variação entre repetições está registrada em `resumo.csv`. Uma hipótese é a distribuição desigual de conexões persistentes entre os processos Uvicorn; o Locust usa `HttpUser`, e cada usuário pode reutilizar sua conexão.
 
 ### 5.2. Efeito da demanda sobre a latência
 
 ![Latência p95 mediana das repetições por demanda](figuras/cpu-bound/latencia-p95-vs-demanda.png)
 
-**Figura 8 — Latência p95 em função da demanda.** Cada ponto é a mediana dos p95 calculados separadamente nas três repetições; seus extremos estão em `resumo.csv`. A escala vertical é linear e está em milissegundos. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+**Figura 8 — Latência p95 em função da demanda.** Cada ponto é a mediana dos p95 calculados separadamente nas três repetições
 
-Em 1 vCPU, o p95 mediano cresceu de 559 ms com 1 usuário a 14.346 ms com 16, enquanto a vazão permaneceu quase constante. Essa combinação é compatível com espera crescente por capacidade de processamento. Em 8 vCPUs, o p95 permaneceu próximo de 540–546 ms até 4 usuários, chegou a 1.095 ms com 8 e a 2.812 ms com 16. A configuração de 6 vCPUs registrou 548 ms com 4 usuários, 1.619 ms com 8 e 2.723 ms com 16. O cenário de 2 vCPUs mostrou 2.169 ms com 4 usuários e 4.313 ms com 8, coerentes com a menor vazão desses pontos, mas sua variação entre repetições impede inferir um mecanismo único.
+Em 1 vCPU, o p95 mediano cresceu de 559 ms com 1 usuário a 14.346 ms com 16, enquanto a vazão permaneceu quase constante. Esses valores são justificados com a espera crescente por capacidade de processamento. Já com 8 vCPUs, o p95 permaneceu próximo de 540–546 ms até 4 usuários, chegou a 1.095 ms com 8 e a 2.812 ms com 16. A configuração de 6 vCPUs registrou 548 ms com 4 usuários, 1.619 ms com 8 e 2.723 ms com 16. O cenário de 2 vCPUs mostrou 2.169 ms com 4 usuários e 4.313 ms com 8, coerentes com a menor vazão desses pontos.
 
 ![Latência média por demanda e provisionamento](figuras/cpu-bound/latencia-media-vs-demanda.png)
 
-**Figura 9 — Latência média em função da demanda.** A média é calculada dentro de cada repetição, e a figura apresenta a mediana entre repetições. A amplitude mínimo–máximo está em `resumo.csv`. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+**Figura 9 — Latência média em função da demanda.** A média é calculada dentro de cada repetição, e a figura apresenta a mediana entre repetições. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
 A latência média confirma a tendência, sem substituir a medida de cauda: com 16 usuários, as medianas foram 8.390 ms em 1 vCPU, 4.329 ms em 2, 2.157 ms em 4, 1.440 ms em 6 e 1.274 ms em 8. O p95 de 8 vCPUs com 16 usuários (2.812 ms) ficou ligeiramente acima do de 6 vCPUs (2.723 ms); três repetições e amplitudes sobrepostas não sustentam concluir que a configuração maior piorou a cauda de forma sistemática.
 
-### 5.3. Comportamento temporal das requisições por segundo
+### 5.3. Comportamento temporal das requisições por segundo (RPS)
+
+RPS significa requisições por segundo, ou seja, a quantidade de respostas concluídas pelo serviço a cada segundo.
 
 ![RPS temporal de 1 vCPU](figuras/cpu-bound/rps-temporal-1vcpu.png)
 
-**Figura 10 — RPS temporal em 1 vCPU.** Cinco painéis representam os níveis de demanda, com a mesma escala vertical; linha = mediana de três repetições. A linha vertical tracejada indica aproximadamente o fim do aquecimento; mínimos e máximos estão no CSV. Fonte: [`rps-temporal-resumo.csv`](../results/demand-vbox-analysis/rps-temporal-resumo.csv).
+**Figura 10 — RPS temporal em 1 vCPU.** Cinco painéis representam os níveis de demanda, com a mesma escala vertical. Fonte: [`rps-temporal-resumo.csv`](../results/demand-vbox-analysis/rps-temporal-resumo.csv).
 
 ![RPS temporal de 2 vCPUs](figuras/cpu-bound/rps-temporal-2vcpu.png)
 
-**Figura 11 — RPS temporal em 2 vCPUs.** Mesma convenção da Figura 10. As diferenças entre repetições podem ser conferidas no CSV temporal.
+**Figura 11 — RPS temporal em 2 vCPUs.** 
 
 ![RPS temporal de 4 vCPUs](figuras/cpu-bound/rps-temporal-4vcpu.png)
 
-**Figura 12 — RPS temporal em 4 vCPUs.** Mesma convenção, com intervalos observados de 5 s.
+**Figura 12 — RPS temporal em 4 vCPUs.**
 
 ![RPS temporal de 6 vCPUs](figuras/cpu-bound/rps-temporal-6vcpu.png)
 
-**Figura 13 — RPS temporal em 6 vCPUs.** Mesma convenção, alinhada ao primeiro registro de cada execução.
+**Figura 13 — RPS temporal em 6 vCPUs.**
 
 ![RPS temporal de 8 vCPUs](figuras/cpu-bound/rps-temporal-8vcpu.png)
 
-**Figura 14 — RPS temporal em 8 vCPUs.** Mesma convenção. A série termina no último intervalo completo presente no histórico; não há pontos fabricados até 120 s.
-
-As curvas de 1 vCPU permanecem próximas de 1,8 req/s apesar do aumento de usuários, ao passo que 6 e 8 vCPUs sustentam níveis progressivamente maiores. Em 2 vCPUs, os mínimos e máximos registrados para 4 e 16 usuários diferem durante boa parte do ensaio, em vez de apenas em um instante isolado; essa dispersão permanece documentada no CSV temporal. O gráfico permite observar oscilações de 5 s, mas não prova sua origem. O aquecimento de 30 s foi aplicado de forma idêntica à análise principal; as séries completas o exibem para contextualizar o comportamento, sem misturá-lo às medianas das Figuras 7–9.
+**Figura 14 — RPS temporal em 8 vCPUs.**
 
 ### 5.4. Utilização de CPU e possíveis pontos de saturação
 
 ![Utilização média de CPU da VM por demanda](figuras/cpu-bound/cpu-vs-demanda.png)
 
-**Figura 15 — CPU total da VM em função da demanda.** Percentual agregado normalizado à capacidade de cada provisionamento, mediana das médias temporais por repetição; a linha de 95% é referência operacional de alta utilização. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+**Figura 15 — CPU total da VM em função da demanda.** Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-Em 1 vCPU, a utilização já foi 99,8% com um usuário e ficou aproximadamente em 100% nos demais níveis. A vazão quase constante e o p95 crescente fornecem evidência conjunta de forte restrição de CPU em toda a faixa testada; o primeiro nível já está próximo do limite, de modo que não é possível localizar o limiar abaixo de um usuário. Em 4 e 6 vCPUs, o primeiro nível testado acima de 95% foi 16 usuários, com medianas próximas de 100%; entretanto, a vazão ainda cresceu entre 8 e 16 usuários. Há pressão de CPU e degradação da latência, mas não confirmação de um platô de vazão. Em 8 vCPUs, a CPU mediana chegou a 87,6% com 16 usuários: a matriz não demonstrou saturação por CPU nesse cenário, embora a latência tenha aumentado.
+Em 1 vCPU, a utilização já foi 99,8% com um usuário e ficou aproximadamente em 100% nos demais níveis. A vazão quase constante e o p95 crescente fornecem são justificativas para o nível de uso. o primeiro nível já está próximo do limite, de modo que não é possível localizar o limiar abaixo de um usuário. Em 4 e 6 vCPUs, o primeiro nível testado acima de 95% foi 16 usuários, com medianas próximas de 100%; entretanto, a vazão ainda cresceu entre 8 e 16 usuários. Há pressão de CPU e degradação da latência. Em 8 vCPUs, a CPU mediana chegou a 87,6% com 16 usuários: a matriz não demonstrou saturação por CPU nesse cenário, embora a latência tenha aumentado.
 
-Em 2 vCPUs, a mediana de CPU foi 99,8% com 2 e 16 usuários, mas 51,1% com 4 e 43,2% com 8. O padrão acompanha a vazão não monotônica e varia também entre repetições; por isso, não permite identificar um ponto de saturação único. A linha de 95% não é prova isolada de saturação. O número de workers fixo, a carga fechada e a ausência de telemetria de filas e escalonamento do hospedeiro impedem uma explicação causal das oscilações.
+Em 2 vCPUs, a mediana de CPU foi 99,8% com 2 e 16 usuários, mas 51,1% com 4 e 43,2% com 8. O padrão acompanha a vazão não monotônica e varia também entre repetições; por isso, não permite identificar um ponto de saturação único.
 
 ### 5.5. Total de requisições atendidas
 
 ![Requisições concluídas por demanda](figuras/cpu-bound/requisicoes-totais-vs-demanda.png)
 
-**Figura 16 — Requisições concluídas na janela comparável.** Cada ponto é a mediana das contagens de três repetições, em janelas de 79–80 s; não representa solicitações iniciadas. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+**Figura 16 — Requisições concluídas na janela comparável.** Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
 A contagem complementa a vazão, pois usa as mesmas respostas concluídas e a mesma janela. Com 16 usuários, as medianas foram 144, 290, 585, 874 e 999 requisições, respectivamente para 1, 2, 4, 6 e 8 vCPUs. O total nas 75 janelas foi 26.967, sem falhas. As pequenas diferenças de duração entre 79 e 80 s justificam usar req/s para comparações de capacidade mais precisas; a figura de totais confirma a ordem de grandeza do atendimento efetivo.
 
@@ -192,15 +179,17 @@ A contagem complementa a vazão, pois usa as mesmas respostas concluídas e a me
 
 ![Consumo médio de RAM da VM por demanda](figuras/cpu-bound/ram-vs-demanda.png)
 
-**Figura 17 — RAM usada na VM em função da demanda.** Mediana da média temporal de cada repetição, em MiB; inclui sistema operacional, aplicação e caches. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+**Figura 17 — RAM usada na VM em função da demanda.** Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-A RAM mediana variou de aproximadamente 470 a 548 MiB entre os pontos, abaixo dos 1.024 MiB atribuídos. Isso não aponta esgotamento de memória física nos cenários de 2–8 vCPUs. O `vmstat` registrou, na VM separada de 1 vCPU, cerca de 194–206 MiB de swap alocada nas coletas, com até 9,3 MiB de entrada acumulada e nenhuma saída; em 2 vCPUs a swap alocada chegou a 524 KiB, e em 4–8 vCPUs foi zero. Como esse arquivo não tem timestamps por linha, tais números não podem ser atribuídos exclusivamente à janela de respostas.
+A RAM mediana variou de aproximadamente 470 a 548 MiB entre os pontos, abaixo dos 1.024 MiB atribuídos. Isso não aponta esgotamento de memória física nos cenários de 2–8 vCPUs.
 
 ![Speedup e eficiência relativa por demanda](figuras/cpu-bound/speedup-eficiencia-vs-demanda.png)
 
-**Figura 18 — Ganho de vazão e eficiência relativa.** Speedup = mediana da vazão de `n` vCPUs / mediana de 1 vCPU no mesmo nível; eficiência = speedup/`n`. São quocientes descritivos, sujeitos à diferença de VM do cenário-base. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+Speedup (Fator de aceleração) é calculado pela mediana da vazão de **x** vCPUs/ medianada de 1 vCPU
 
-Com 16 usuários, a vazão passou de 1,82 req/s em 1 vCPU a 12,49 req/s em 8 vCPUs, ganho observado de **6,85×** para oito vezes o provisionamento e eficiência relativa de **85,6%**. Com um usuário, a vazão ficou quase igual e o ganho de provisionar mais CPUs foi pequeno. Portanto, o benefício dependeu da concorrência disponível; os ganhos não foram universalmente proporcionais aos recursos. A razão 6 vCPUs/1 vCPU em 16 usuários ficou ligeiramente acima de 6 (6,07×), diferença pequena e sujeita às condições distintas da VM de 1 vCPU, à dispersão e ao arredondamento; não é evidência suficiente de escalabilidade superlinear.
+**Figura 18 — Ganho de vazão e eficiência relativa.**  Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+
+Com 16 usuários, a vazão passou de 1,82 req/s em 1 vCPU a 12,49 req/s em 8 vCPUs, ganho observado de **6,85×** para oito vezes o provisionamento e eficiência relativa de **85,6%**. Com um usuário, a vazão ficou quase igual e o ganho de provisionar mais CPUs foi pequeno. 
 
 | vCPUs | Vazão com 16 usuários (req/s) | p95 mediano (ms) | CPU mediana (%) | Requisições medianas na janela | Speedup relativo a 1 vCPU |
 | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -220,11 +209,13 @@ Oito workers foram mantidos em todos os cenários para controlar a configuraçã
 
 ## 6. Conclusão
 
-A demanda elevou a pressão de CPU de forma dependente do provisionamento. Em 1 vCPU, a CPU já chegou a 99,8% com um usuário; a vazão permaneceu perto de 1,8 req/s até 16 usuários, enquanto o p95 subiu de 559 para 14.346 ms. Essa combinação é o sinal mais forte de restrição de processamento na matriz. Em 4 e 6 vCPUs, 16 usuários levaram a CPU a aproximadamente 100% e elevaram a latência, mas a vazão ainda cresceu em relação a 8 usuários, de modo que um patamar de capacidade não foi demonstrado. Em 8 vCPUs, a CPU mediana máxima foi 87,6%; não se observou saturação de CPU até 16 usuários, embora a latência p95 tenha aumentado de cerca de 546 ms com 4 usuários para 2.812 ms com 16.
+Os resultados demonstraram que o aumento da demanda provocou maior utilização de CPU e crescimento da latência, principalmente nos cenários com menor capacidade de processamento. Com 1 vCPU, a vazão permaneceu próxima de 1,8 req/s, enquanto a latência p95 passou de 559 ms, com um usuário, para 14.346 ms, com dezesseis usuários.
 
-O aumento de vCPUs melhorou a capacidade sob demanda suficiente: com 16 usuários, a vazão mediana cresceu de 1,82 para 12,49 req/s entre 1 e 8 vCPUs, e a latência média caiu de 8.390 para 1.274 ms. O ganho de 6,85× para oito vezes o provisionamento ficou abaixo da proporcionalidade ideal. Com um usuário, mais vCPUs praticamente não alteraram a vazão. O cenário de 2 vCPUs apresentou queda e dispersão não monotônicas em demandas intermediárias; as execuções são válidas e foram mantidas, mas a causa não foi identificada. Os 75 ensaios registraram 40.722 respostas concluídas, nenhuma falha e nenhum timeout no teste completo; 26.967 dessas respostas pertencem às janelas comuns de análise.
+O aumento do provisionamento melhorou a capacidade de atendimento da aplicação. Com dezesseis usuários, a vazão passou de 3,66 req/s em 2 vCPUs para 12,49 req/s em 8 vCPUs, representando um ganho de aproximadamente 3,41 vezes para um aumento de quatro vezes na quantidade de processadores virtuais.
 
-As conclusões são descritivas deste ambiente virtualizado e deste benchmark. O uso de outra VM para 1 vCPU, a ordem fixa de execução, a pequena quantidade de repetições e a ausência de medição de filas e do hospedeiro durante a carga limitam a precisão de limiares de saturação e a atribuição causal dos ganhos. Os dados brutos, a [auditoria](../results/demand-vbox-analysis/auditoria.csv), as tabelas derivadas e o [script de reprodução](../scripts/build_demand_report.py) permitem revisar todos os números.
+Apesar desse ganho, o cenário de 8 vCPUs apresentou aumento de latência conforme a demanda cresceu. A utilização média de CPU atingiu 87,6% com dezesseis usuários, indicando que a aplicação ainda não havia alcançado o critério operacional de saturação estabelecido, embora o tempo de resposta já tivesse aumentado.
+
+De maneira geral, os experimentos mostram que o provisionamento de CPU influencia diretamente a capacidade de processamento da aplicação, mas que seus benefícios dependem da demanda oferecida e não são necessariamente proporcionais à quantidade de recursos adicionados.
 
 ## Apêndice A — Execução manual histórica e evidências visuais
 
