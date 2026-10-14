@@ -6,9 +6,9 @@ Este repositório reúne duas aplicações HTTP usadas para estudar como a deman
 
 **POI 2026.2 — Grupo 15**
 
-- Arthur Gabriel Santos Albuquerque (`Arthurabriel`)
-- Hildon Regis Navarro Neto (`Hildon27`)
-- Victor Vili Xavier Luna (`victor-vili-luna`)
+- Arthur Gabriel Santos Albuquerque (`Arthurabriel`) - 122110395
+- Hildon Regis Navarro Neto (`Hildon27`) - 122110322
+- Victor Vili Xavier Luna (`victor-vili-luna`) - 122110387
 
 ## Aplicações e relatórios
 
