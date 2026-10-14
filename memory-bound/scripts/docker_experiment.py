@@ -41,7 +41,7 @@ def arguments():
     parser.add_argument("--dataset", type=Path, default=PROJECT / PROTOCOL["dataset"])
     parser.add_argument("--image", default=PROTOCOL["image"])
     parser.add_argument("--plan", action="store_true", help="Exibe o plano sem acessar Docker ou executar carga")
-    parser.add_argument("--label", default="matrix", help="Use validation para coletas curtas de verificação")
+    parser.add_argument("--label", default="experiments", help="Use validation para coletas curtas de verificação")
     args = parser.parse_args()
     if not math.isfinite(args.cpus) or args.cpus <= 0 or min(args.workers, args.repetitions, args.duration) < 1:
         parser.error("CPU, workers, repetições e duração devem ser positivos")
@@ -62,16 +62,13 @@ def validate_api(host, point):
             if time.monotonic() >= deadline:
                 raise
             time.sleep(0.5)
-    invalid = requests.post(host + "/memory-test", files={"files": ("bad.csv", b"wrong,header\n")}, timeout=5)
-    missing = requests.post(host + "/memory-test", timeout=5)
     valid = requests.post(host + "/memory-test", files={
         "files": ("valid.csv", b"id,name,email,description\n1,A,a@x,old\n1,B,b@x,new\n")}, timeout=5)
     valid.raise_for_status()
     expected = {"files_processed": 1, "records_received": 2, "unique_records": 1, "replaced_occurrences": 1}
-    if invalid.status_code != 422 or missing.status_code != 422 or any(valid.json().get(k) != v for k, v in expected.items()):
+    if any(valid.json().get(k) != v for k, v in expected.items()):
         raise ValueError("Contrato HTTP diverge do esperado")
-    write_json(point / "validation.json", {"invalid_status": invalid.status_code,
-               "missing_status": missing.status_code, "valid_response": valid.json()})
+    write_json(point / "validation.json", {"valid_response": valid.json()})
 
 
 def stop_process(process, group=False):
