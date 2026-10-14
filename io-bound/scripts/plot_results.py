@@ -14,6 +14,7 @@ MONITOR_COLUMNS = {
     "cpu_iowait_percent": "iowait_percent",
     "ram_available_bytes": "ram_available_bytes",
     "app_rss_bytes": "app_rss_bytes",
+    "app_cpu_percent": "app_cpu_percent",
     "disk_write_bytes_per_s": "disk_write_bytes_per_s",
     "disk_read_bytes_per_s": "disk_read_bytes_per_s",
 }
@@ -22,6 +23,7 @@ PLOTS = [
     ("median_ms", "Latência mediana (ms)"),
     ("p95_ms", "Latência p95 (ms)"),
     ("cpu_percent", "CPU da VM (%)"),
+    ("app_cpu_percent", "CPU do processo da API (% de 1 núcleo)"),
     ("iowait_percent", "iowait da VM (%)"),
     ("disk_write_mib_s", "Escrita em disco (MiB/s)"),
     ("ram_available_mib", "RAM disponível (MiB)"),

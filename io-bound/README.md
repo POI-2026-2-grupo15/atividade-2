@@ -151,6 +151,18 @@ se ela vier zerada, os relógios estão desencontrados.
 | `FSYNC` | `1` | `0` desliga o fsync |
 | `HOST` | `http://127.0.0.1:8000` | URL da API |
 
+## Piloto local com Docker
+
+Simula os 4 cenários com limites de CPU/RAM do Docker. A API e o monitor
+rodam num container, o Locust em outro. Leva cerca de 18 minutos:
+
+```bash
+RESULTS=results/docker bash scripts/run_docker_scenarios.sh
+python scripts/plot_results.py --results results/docker --output results/docker/plots
+```
+
+Os resultados e a análise estão em [docs/relatorio-final.md](docs/relatorio-final.md).
+
 ## Interpretação
 
 - **Vazão (req/s)** sobe com os usuários até o disco saturar e depois estabiliza.
