@@ -1,5 +1,13 @@
 # memory-bound
 
+Para testar em containers, consulte o [protocolo Docker](docs/experiments.md).
+O [piloto inicial](docs/docker-pilot.md) permanece como registro histórico.
+Para escolher CPU e workers antes de variar RAM, consulte a
+[calibração de CPU](docs/cpu-calibration.md).
+
+Para preparar o ambiente exigido pela disciplina, consulte o
+[roteiro de deploy no VirtualBox](docs/vm-setup.md).
+
 Backend em Python 3.10 e FastAPI. Recebe vários CSVs e constrói uma lista de cadastro único em memória, mantendo o registro completo da última ocorrência de cada ID, ou seja, IDs duplicados são descartados e para identificar isso o sistema deve manter dados na memória.
 
 ## Execução local
@@ -107,100 +115,56 @@ python scripts/generate_dataset.py --output /tmp/memory-bound-medio \
   --unique-records 44000 --duplicates 4000 --description-bytes 512 --files 4
 ```
 
-## Carga Locust no hospedeiro
+## Experimentos Docker
 
-No computador que gera a carga, instale as dependências adicionais:
+O [protocolo](docs/experiments.md) define quatro limites de RAM, quatro demandas
+e três repetições: **48 execuções**, com seis CPUs e seis workers constantes.
+Configuração única em [experiments/protocol.json](experiments/protocol.json).
+
+A partir da raiz do repositório:
+
+```bash
+memory-bound/.venv/bin/python -m pip install -r memory-bound/requirements.txt \
+  -r memory-bound/requirements-analysis.txt
+memory-bound/.venv/bin/python memory-bound/scripts/docker_experiment.py --plan
+docker build -t memory-bound:experiment memory-bound
+```
+
+Para executar a matriz, quando autorizada:
+
+```bash
+memory-bound/.venv/bin/python memory-bound/scripts/docker_experiment.py
+```
+
+Aplicação e monitor ficam no container; Locust e seu monitor ficam no Mac.
+O executor cuida dos limites reais, ordem das coletas, aquecimento, janela,
+repetições, falhas e limpeza. O antigo `docker_pilot.py` foi substituído por
+`docker_experiment.py`. Pilotos anteriores permanecem em `results/` e nos
+[registros históricos](docs/docker-pilot.md).
+
+A comparação usa `load/measurement.json`, não os CSVs acumulados do Locust.
+O protocolo explica sucessos, falhas, requisições pendentes e cobertura dos
+monitores. Os resultados são ignorados pelo Git e precisam ser incluídos
+explicitamente na entrega. Não há commit/push automático.
+
+`run_load_test.sh` continua como adaptador do Locust e `run_demand_curve.sh`
+como utilitário de carga contra uma API já iniciada; não provisionam Docker.
+O [roteiro VirtualBox](docs/vm-setup.md) é referência separada para o LCC.
+
+## Validação local
+
+A partir de `memory-bound/`:
 
 ```bash
 source .venv/bin/activate
-python -m pip install -r requirements-experiment.txt
+python -m pip install -r requirements.txt -r requirements-analysis.txt
+python -m unittest discover -s tests -v
 ```
 
-O `load_tests/locustfile.py` envia os arquivos ao `/memory-test`. Cada usuário
-aguarda sua resposta antes de repetir a operação, sem espera entre
-requisições. Usuários simultâneos não equivalem a uma taxa fixa de chegada.
+Os testes cobrem consolidação de CSVs, API HTTP, Locust/monitor reais e validade
+da matriz/janela experimental. A integração usa um lote mínimo e encerra os
+processos ao final. Os artefatos ficam em `results/local-validation-*`.
 
-Antes da carga, conferimos hashes e tamanhos do manifesto. Não altere os CSVs
-durante uma execução. Cada requisição abre streams independentes e os fecha
-ao terminar. O multipart usa `requests-toolbelt` para enviar os dados em fluxo,
-evitando montar o lote inteiro em RAM por usuário. Consulte a
-[documentação do encoder](https://toolbelt.readthedocs.io/en/latest/uploading-data.html).
-Isso não elimina o custo de leitura, rede e processamento do gerador.
-
-### Um nível de demanda
-
-Com a API já executando, este comando prepara e inicia uma coleta:
-
-```bash
-DATASET_DIR=datasets/grande USERS=4 SPAWN_RATE=2 DURATION=60s \
-SCENARIO=vcpu2-ram1g REPETITION=1 SERVER_WORKERS=4 VM_VCPUS=2 VM_RAM_MIB=1024 \
-HOST=http://127.0.0.1:8000 OUTPUT_DIR=results/vcpu2-ram1g/rep-1/u4 \
-bash scripts/run_load_test.sh
-```
-
-Os valores são exemplos de configuração, não resultados medidos ou valores já
-calibrados. O diretório de saída deve ser novo. São gerados `config.json`,
-`dataset-manifest.json`, `dependencies.txt`, `locust.log` e CSVs de estatísticas,
-histórico, falhas e exceções. Erros HTTP, timeout ou contagens inconsistentes
-são falhas; o script retorna status não zero se o Locust registrar erros.
-
-| Variável | Padrão | Significado |
-|---|---|---|
-| `DATASET_DIR` | `datasets/example` do projeto | conjunto escolhido |
-| `USERS` | 1 | usuários virtuais |
-| `SPAWN_RATE` | 1 | usuários iniciados por segundo |
-| `DURATION` | `60s` | duração, incluindo rampa |
-| `REQUEST_TIMEOUT` | 120 | timeout do cliente em segundos |
-| `HOST` | `http://127.0.0.1:8000` | endereço acessível da API |
-| `OUTPUT_DIR` | diretório novo com data/PID | resultados |
-| `SCENARIO`, `REPETITION` | não informados | identificação da execução |
-| `SERVER_WORKERS`, `VM_VCPUS`, `VM_RAM_MIB` | não informados | recursos declarados |
-
-As variáveis de recursos registram valores declarados: não modificam a VM nem
-o número de workers do servidor. Se omitidas, ficam explicitamente não informadas.
-Use caminhos absolutos de dataset/saída se executar fora da pasta do projeto.
-Mantenha o mesmo lote, timeout, workers e configuração de carga ao comparar RAM.
-Timeout do cliente não garante cancelamento do trabalho já iniciado no servidor.
-
-### Sequência de demandas de um cenário
-
-```bash
-DATASET_DIR=datasets/grande SCENARIO=vcpu2-ram1g REPETITION=1 \
-SERVER_WORKERS=4 VM_VCPUS=2 VM_RAM_MIB=1024 \
-USERS_LIST='1 2 4 8 16' DURATION=60s \
-bash scripts/run_demand_curve.sh
-```
-
-Cria `results/<cenário>/rep-<repetição>/u<N>`. O diretório da repetição deve ser
-novo. `USERS_LIST` é a lista de demandas; as demais opções do comando de um
-ponto continuam valendo. Há pausa padrão de 10 segundos entre pontos, ajustável
-por `PAUSE_SECONDS`; ela ocorre no gerador, fora da aplicação. Pontos que falham
-ficam registrados e a curva continua; o status final indica se houve alguma falha.
-
-## Monitoramento na VM
-
-O monitor precisa de `psutil`; instale `psutil==7.0.0` no ambiente da aplicação.
-Inicie o servidor e acompanhe o PID mestre e seus descendentes:
-
-```bash
-mkdir -p results
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 \
-  --no-access-log > results/api.log 2>&1 &
-APP_PID=$!
-python scripts/monitor.py --pid "$APP_PID" --interval 1 \
-  --output results/monitor-vcpu2-ram1g-rep1.csv
-```
-
-Inicie antes da carga e pare com Ctrl+C depois dela. `--duration` limita a coleta
-em segundos; sem `--pid`, coleta apenas o sistema. Saídas existentes não são
-sobrescritas. O monitor também grava `<arquivo>.metadata.json`, com recursos
-detectados, plataforma, PID e comando do servidor, quando acessível.
-
-O CSV inclui UTC, intervalo, CPU total/por núcleo, RAM usada/disponível,
-contagem de processos, soma de RSS, CPU da árvore e swap ocupado/total. Em
-Linux inclui taxas de entrada/saída de swap; em outras plataformas essas taxas
-ficam vazias. Contadores de swap são do sistema inteiro, não apenas da API.
-
-Os resultados são locais e ignorados durante as execuções; prepare também os
-resultados relevantes para a entrega exigida pela disciplina. Os datasets não
-são ignorados. Esta parte não executa deploy, coleta comparativa ou publicação.
+Para verificar o fluxo Docker com coletas curtas, use o comando de validação
+no [protocolo](docs/experiments.md). Essas verificações não são resultados da
+matriz definitiva.

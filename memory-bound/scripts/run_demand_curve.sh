@@ -2,9 +2,9 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-export SCENARIO="${SCENARIO:?Informe SCENARIO, ex.: vcpu2-ram1g}"
+export SCENARIO="${SCENARIO:?Informe SCENARIO, ex.: docker-cpu6-ram1g}"
 export REPETITION="${REPETITION:-1}"
-USERS_LIST="${USERS_LIST:-1 2 4 8 16}"
+USERS_LIST="${USERS_LIST:-1 2 4 8}"
 PAUSE_SECONDS="${PAUSE_SECONDS:-10}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$PROJECT_DIR/results/$SCENARIO/rep-$REPETITION}"
 mkdir -p -- "$(dirname -- "$OUTPUT_ROOT")"

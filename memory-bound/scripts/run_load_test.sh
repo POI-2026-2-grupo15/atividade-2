@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-export DATASET_DIR="${DATASET_DIR:-$PROJECT_DIR/datasets/example}"
+export DATASET_DIR="${DATASET_DIR:-$PROJECT_DIR/datasets/pequeno}"
 export REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-120}"
 USERS="${USERS:-1}"
 SPAWN_RATE="${SPAWN_RATE:-1}"

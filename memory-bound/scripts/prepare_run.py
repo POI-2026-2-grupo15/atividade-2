@@ -30,10 +30,16 @@ def main() -> None:
         "scenario": os.getenv("SCENARIO", "não informado"),
         "repetition": os.getenv("REPETITION", "não informada"),
         "server_workers": os.getenv("SERVER_WORKERS", "não informado"),
-        "vm_vcpus": os.getenv("VM_VCPUS", "não informado"),
-        "vm_ram_mib": os.getenv("VM_RAM_MIB", "não informada"),
         "python": platform.python_version(), "generator_platform": platform.platform(),
+        "warmup_seconds": os.getenv("WARMUP_SECONDS"),
+        "measurement_seconds": os.getenv("MEASUREMENT_SECONDS"),
     }
+    if os.getenv("CONTAINER_CPUS"):
+        config.update({
+            "execution_environment": "docker",
+            "container_cpus": float(os.environ["CONTAINER_CPUS"]),
+            "container_ram_mib": int(os.environ["CONTAINER_RAM_MIB"]),
+        })
     for name, data in (("config.json", config), ("dataset-manifest.json", manifest)):
         (args.output / name).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
                                         encoding="utf-8")

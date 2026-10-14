@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import platform
 import signal
 import sys
@@ -11,6 +12,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import psutil
+
+
+def container_metrics() -> dict:
+    """cgroup v2: valores do container; ausentes fora desse ambiente."""
+    base = Path("/sys/fs/cgroup")
+    result = {}
+    for name, filename in (
+        ("container_memory_bytes", "memory.current"),
+        ("container_memory_peak_bytes", "memory.peak"),
+        ("container_memory_limit_bytes", "memory.max"),
+        ("container_swap_bytes", "memory.swap.current"),
+    ):
+        try:
+            value = (base / filename).read_text().strip()
+            result[name] = int(value) if value != "max" else value
+        except (OSError, ValueError):
+            result[name] = ""
+    for filename, prefix in (("memory.events", "container_"), ("cpu.stat", "container_cpu_")):
+        try:
+            values = dict(line.split() for line in (base / filename).read_text().splitlines())
+        except (OSError, ValueError):
+            values = {}
+        keys = ("oom", "oom_kill") if filename == "memory.events" else ("usage_usec", "throttled_usec")
+        for key in keys:
+            result[prefix + key] = values.get(key, "")
+    return result
 
 
 def positive_float(value: str) -> float:
@@ -37,6 +64,7 @@ def main() -> None:
     parser.add_argument("--interval", type=positive_float, default=1.0)
     parser.add_argument("--duration", type=positive_float, help="Segundos; padrão: até Ctrl+C/SIGTERM")
     parser.add_argument("--pid", type=int, help="PID mestre do Uvicorn; inclui descendentes")
+    parser.add_argument("--pid-file", type=Path, help="Arquivo exclusivo com PID do monitor para encerramento limpo")
     args = parser.parse_args()
     try:
         root = psutil.Process(args.pid) if args.pid is not None else None
@@ -51,6 +79,9 @@ def main() -> None:
     metadata_path = args.output.with_suffix(args.output.suffix + ".metadata.json")
     if args.output.exists() or metadata_path.exists():
         parser.error("Arquivo de saída ou metadados já existe")
+    if args.pid_file:
+        with args.pid_file.open("x") as handle:
+            handle.write(str(os.getpid()))
     metadata = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "platform": platform.platform(), "python": platform.python_version(),
@@ -59,6 +90,8 @@ def main() -> None:
         "swap_total_bytes": psutil.swap_memory().total,
         "root_pid": args.pid, "interval_seconds": args.interval,
         "duration_seconds": args.duration,
+        "system_metrics_scope": "Linux system/VM; use container_* for cgroup limits and usage",
+        "container_initial": container_metrics(),
     }
     if root:
         try:
@@ -72,6 +105,7 @@ def main() -> None:
               "system_cpu_per_core_percent", "ram_used_bytes", "ram_available_bytes",
               "app_process_count", "app_rss_bytes", "app_cpu_percent", "app_cpu_sampled_process_count",
               "swap_used_bytes", "swap_total_bytes", "swap_in_bytes_per_s", "swap_out_bytes_per_s"]
+    fields.extend(container_metrics())
     tracked: dict[int, psutil.Process] = {}
     for proc in process_tree(root):
         try:
@@ -116,6 +150,7 @@ def main() -> None:
                     continue
             tracked = current
             writer.writerow({
+                **container_metrics(),
                 "timestamp_utc": datetime.now(timezone.utc).isoformat(),
                 "elapsed_seconds": round(now - start, 6),
                 "sample_interval_seconds": round(now - previous, 6),
