@@ -1,8 +1,6 @@
 # memory-bound
 
-Backend experimental em Python 3.10+ e FastAPI. Recebe vários CSVs e constrói
-um cadastro único em memória, mantendo o registro completo da última ocorrência
-de cada ID. 
+Backend em Python 3.10 e FastAPI. Recebe vários CSVs e constrói uma lista de cadastro único em memória, mantendo o registro completo da última ocorrência de cada ID, ou seja, IDs duplicados são descartados e para identificar isso o sistema deve manter dados na memória.
 
 ## Execução local
 
@@ -51,7 +49,7 @@ Envie os arquivos na ordem desejada:
 curl -sS -F 'files=@a.csv' -F 'files=@b.csv' http://127.0.0.1:8000/memory-test
 ```
 
-Resposta ilustrativa (o tempo varia):
+Resposta esperada:
 
 ```json
 {
@@ -66,55 +64,143 @@ Resposta ilustrativa (o tempo varia):
 `replaced_occurrences` conta todas as ocorrências posteriores à primeira de um
 ID; é igual a `records_received - unique_records`.
 
-CSV inválido retorna 422 com `detail.file`, `detail.line` e `detail.reason`.
-A linha é a linha física informada pelo parser, podendo ser o fim de um
-registro com múltiplas linhas; para falhas de decodificação, é aproximada
-devido à leitura antecipada. Não é retornado resultado parcial. Ausência do
-campo `files` recebe o erro de validação 422 do FastAPI. Erros do parser
-multipart usam o tratamento padrão do framework.
+## Datasets predefinidos
 
-## Trabalho realizado e uso de memória
+| Conjunto | Arquivos | MiB por arquivo (aprox.) | Registros recebidos | IDs únicos | Substituições |
+|---|---:|---:|---:|---:|---:|
+| `pequeno` | 4 | 0,72 | 9.600 | 8.800 | 800 |
+| `medio` | 4 | 6,53 | 48.000 | 44.000 | 4.000 |
+| `grande` | 4 | 24,79 | 96.000 | 88.000 | 8.000 |
 
-Cada requisição cria seu próprio dicionário `ID -> registro completo`.
-Os arquivos são lidos incrementalmente; não mantemos todas as listas de origem.
-O cadastro consolidado permanece em memória até o fim do lote porque arquivos
-posteriores podem substituir registros anteriores. Ao terminar ou falhar,
-limpamos o cadastro e fechamos os streams dos uploads.
+O conjunto grande tem 99,15 MiB no total: cada CSV tem cerca de 25 MiB
+Duplicatas têm o mesmo ID com uma versão
+mais recente indicada na descrição. 
 
-A resposta contém apenas estatísticas: o cadastro completo é construído
-internamente, mas não é exportado ou persistido. Esse é um recorte experimental;
-se a única necessidade fosse contar IDs, um conjunto de IDs consumiria menos
-memória. A eliminação das referências não garante redução imediata do RSS,
-pois o alocador pode reter páginas para reutilização.
+O `manifest.json` de cada conjunto define ordem dos arquivos, tamanhos, SHA-256,
+parâmetros de geração e contagens esperadas. Não reordene os arquivos: a última
+ocorrência vence. O Locust verifica as contagens; a resposta atual da API não
+permite conferir o conteúdo completo dos registros finais.
 
-O consumo depende principalmente da quantidade de IDs únicos, do tamanho dos
-campos e do overhead dos objetos Python. Mais linhas repetidas não implicam
-crescimento equivalente do cadastro. Requisições simultâneas têm cadastros
-independentes, aumentando o conjunto de dados mantido pela aplicação.
+### Reproduzir os arquivos
 
-A rota de consolidação é síncrona e roda no thread pool do FastAPI. Isso mantém
-o loop de eventos disponível, mas não garante paralelismo de CPU entre threads
-em CPython. O número de workers Uvicorn é configurável; mantenha-o constante
-ao comparar provisionamento. Quantidade de clientes não equivale necessariamente
-a quantidade de consolidações simultaneamente em processamento.
+O gerador usa somente a biblioteca padrão, escreve linha por linha e não
+sobrescreve diretórios existentes. Gere em outro diretório para preservar os
+datasets entregues. Por exemplo, o seguinte reproduz o conjunto grande:
 
-Não adicionamos limites próprios de tamanho ou concorrência. Continuam valendo
-restrições do framework, parser e sistema operacional, incluindo limite de
-campo do módulo `csv` e quantidade de arquivos do parser multipart. A aplicação
-não redefine esses padrões. Falta de memória pode interromper o processo.
+```bash
+python scripts/generate_dataset.py --output /tmp/memory-bound-grande
+```
 
-`UploadFile` pode armazenar arquivos recebidos temporariamente em disco.
-Receber uploads, interpretar CSV, criar objetos e manipular o dicionário também
-consomem rede, I/O e CPU. Portanto, o gargalo de memória é uma hipótese a medir,
-não uma propriedade já comprovada por esta implementação.
+Parâmetros padrão: `--unique-records 88000 --duplicates 8000
+--description-bytes 1024 --files 4`. A ordem e os bytes gerados são determinísticos.
+O limite de 25 MiB por CSV aplica-se ao gerador de artefatos.
+Para conjuntos personalizados que excedam esse tamanho, aumente `--files`.
 
-`processing_time_ms` inclui leitura dos streams, parsing e consolidação.
-Exclui recepção/parsing multipart anterior à chamada da rota, limpeza final e
-serialização/transmissão da resposta. O tempo HTTP medido pelo cliente inclui
-essas outras etapas e eventuais filas.
+Os demais conjuntos foram gerados com:
 
-## Estado desta entrega
+```bash
+python scripts/generate_dataset.py --output /tmp/memory-bound-example \
+  --unique-records 6 --duplicates 2 --description-bytes 64 --files 2
+python scripts/generate_dataset.py --output /tmp/memory-bound-pequeno \
+  --unique-records 8800 --duplicates 800 --description-bytes 256 --files 4
+python scripts/generate_dataset.py --output /tmp/memory-bound-medio \
+  --unique-records 44000 --duplicates 4000 --description-bytes 512 --files 4
+```
 
-Parte 1: implementação da API e documentação local.
-Exemplos de resposta são ilustrativos. Geração de lotes, Locust, monitoramento,
-gráficos e protocolo VirtualBox ficam para as próximas partes.
+## Carga Locust no hospedeiro
+
+No computador que gera a carga, instale as dependências adicionais:
+
+```bash
+source .venv/bin/activate
+python -m pip install -r requirements-experiment.txt
+```
+
+O `load_tests/locustfile.py` envia os arquivos ao `/memory-test`. Cada usuário
+aguarda sua resposta antes de repetir a operação, sem espera entre
+requisições. Usuários simultâneos não equivalem a uma taxa fixa de chegada.
+
+Antes da carga, conferimos hashes e tamanhos do manifesto. Não altere os CSVs
+durante uma execução. Cada requisição abre streams independentes e os fecha
+ao terminar. O multipart usa `requests-toolbelt` para enviar os dados em fluxo,
+evitando montar o lote inteiro em RAM por usuário. Consulte a
+[documentação do encoder](https://toolbelt.readthedocs.io/en/latest/uploading-data.html).
+Isso não elimina o custo de leitura, rede e processamento do gerador.
+
+### Um nível de demanda
+
+Com a API já executando, este comando prepara e inicia uma coleta:
+
+```bash
+DATASET_DIR=datasets/grande USERS=4 SPAWN_RATE=2 DURATION=60s \
+SCENARIO=vcpu2-ram1g REPETITION=1 SERVER_WORKERS=4 VM_VCPUS=2 VM_RAM_MIB=1024 \
+HOST=http://127.0.0.1:8000 OUTPUT_DIR=results/vcpu2-ram1g/rep-1/u4 \
+bash scripts/run_load_test.sh
+```
+
+Os valores são exemplos de configuração, não resultados medidos ou valores já
+calibrados. O diretório de saída deve ser novo. São gerados `config.json`,
+`dataset-manifest.json`, `dependencies.txt`, `locust.log` e CSVs de estatísticas,
+histórico, falhas e exceções. Erros HTTP, timeout ou contagens inconsistentes
+são falhas; o script retorna status não zero se o Locust registrar erros.
+
+| Variável | Padrão | Significado |
+|---|---|---|
+| `DATASET_DIR` | `datasets/example` do projeto | conjunto escolhido |
+| `USERS` | 1 | usuários virtuais |
+| `SPAWN_RATE` | 1 | usuários iniciados por segundo |
+| `DURATION` | `60s` | duração, incluindo rampa |
+| `REQUEST_TIMEOUT` | 120 | timeout do cliente em segundos |
+| `HOST` | `http://127.0.0.1:8000` | endereço acessível da API |
+| `OUTPUT_DIR` | diretório novo com data/PID | resultados |
+| `SCENARIO`, `REPETITION` | não informados | identificação da execução |
+| `SERVER_WORKERS`, `VM_VCPUS`, `VM_RAM_MIB` | não informados | recursos declarados |
+
+As variáveis de recursos registram valores declarados: não modificam a VM nem
+o número de workers do servidor. Se omitidas, ficam explicitamente não informadas.
+Use caminhos absolutos de dataset/saída se executar fora da pasta do projeto.
+Mantenha o mesmo lote, timeout, workers e configuração de carga ao comparar RAM.
+Timeout do cliente não garante cancelamento do trabalho já iniciado no servidor.
+
+### Sequência de demandas de um cenário
+
+```bash
+DATASET_DIR=datasets/grande SCENARIO=vcpu2-ram1g REPETITION=1 \
+SERVER_WORKERS=4 VM_VCPUS=2 VM_RAM_MIB=1024 \
+USERS_LIST='1 2 4 8 16' DURATION=60s \
+bash scripts/run_demand_curve.sh
+```
+
+Cria `results/<cenário>/rep-<repetição>/u<N>`. O diretório da repetição deve ser
+novo. `USERS_LIST` é a lista de demandas; as demais opções do comando de um
+ponto continuam valendo. Há pausa padrão de 10 segundos entre pontos, ajustável
+por `PAUSE_SECONDS`; ela ocorre no gerador, fora da aplicação. Pontos que falham
+ficam registrados e a curva continua; o status final indica se houve alguma falha.
+
+## Monitoramento na VM
+
+O monitor precisa de `psutil`; instale `psutil==7.0.0` no ambiente da aplicação.
+Inicie o servidor e acompanhe o PID mestre e seus descendentes:
+
+```bash
+mkdir -p results
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 \
+  --no-access-log > results/api.log 2>&1 &
+APP_PID=$!
+python scripts/monitor.py --pid "$APP_PID" --interval 1 \
+  --output results/monitor-vcpu2-ram1g-rep1.csv
+```
+
+Inicie antes da carga e pare com Ctrl+C depois dela. `--duration` limita a coleta
+em segundos; sem `--pid`, coleta apenas o sistema. Saídas existentes não são
+sobrescritas. O monitor também grava `<arquivo>.metadata.json`, com recursos
+detectados, plataforma, PID e comando do servidor, quando acessível.
+
+O CSV inclui UTC, intervalo, CPU total/por núcleo, RAM usada/disponível,
+contagem de processos, soma de RSS, CPU da árvore e swap ocupado/total. Em
+Linux inclui taxas de entrada/saída de swap; em outras plataformas essas taxas
+ficam vazias. Contadores de swap são do sistema inteiro, não apenas da API.
+
+Os resultados são locais e ignorados durante as execuções; prepare também os
+resultados relevantes para a entrega exigida pela disciplina. Os datasets não
+são ignorados. Esta parte não executa deploy, coleta comparativa ou publicação.
