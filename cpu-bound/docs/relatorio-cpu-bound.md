@@ -1,12 +1,16 @@
-# Relatório técnico — aplicação CPU-bound
+# Relatório técnico Aplicação CPU-bound
 
-**Estudo:** serviço de hashing SHA-256 e avaliação de provisionamento de CPU em máquinas virtuais VirtualBox. **Data dos registros experimentais:** 13 de outubro de 2026. Este documento reúne o relatório acadêmico e o procedimento de reprodução. Abrange somente a aplicação CPU-bound.
+**Estudo:** serviço de hashing SHA-256 e avaliação de provisionamento de CPU em máquinas virtuais VirtualBox.
+**Data dos registros experimentais:** 13 e 14 de outubro de 2026.
+Este documento reúne o relatório acadêmico e o procedimento de reprodução. Abrange somente a aplicação CPU-bound.
 
 ## 1. Introdução
 
-A atividade investiga como o provisionamento de recursos de uma máquina virtual afeta o desempenho de uma aplicação submetida a carga. A análise conjunta de utilização de recursos, vazão e tempo de resposta permite distinguir uma melhoria de capacidade de uma mera mudança no número de processadores atribuídos. Para estudar esse efeito, foi desenvolvido um serviço HTTP que executa hashing SHA-256 repetido, uma carga sintética com trabalho computacional parametrizável e pouca entrada/saída durante o cálculo.
+A atividade investiga como o provisionamento de recursos de uma máquina virtual afeta o desempenho de uma aplicação submetida a carga. A análise conjunta de utilização de recursos, vazão e tempo de resposta permite distinguir uma melhoria de capacidade de uma mera mudança no número de processadores atribuídos. Para estudar esse efeito, foi desenvolvido um serviço HTTP que executa hashing SHA-256 repetido, uma carga simulada com trabalho computacional parametrizável e pouca entrada/saída durante o cálculo.
 
-O objetivo geral é caracterizar o comportamento desse serviço sob carga e comparar cenários de provisionamento de CPU no VirtualBox. Especificamente, busca-se: (i) implementar e validar uma carga reproduzível; (ii) registrar o ambiente e o procedimento de medição; (iii) comparar utilização de CPU e memória, vazão, latência e falhas HTTP; e (iv) avaliar os limites das inferências possíveis a partir dos dados coletados. Os resultados são apresentados na Seção 5, sem pressupor que CPU elevada, isoladamente, determine um limiar de saturação.
+O objetivo geral é caracterizar o comportamento desse serviço sob carga e comparar cenários de provisionamento de CPU no VirtualBox. Para isso, busca-se implementar e validar uma carga reproduzível, registrar o ambiente e o procedimento de medição, comparar utilização de CPU e memória, vazão, latência e falhas HTTP, e avaliar os limites das inferências possíveis a partir dos dados coletados.
+
+Os resultados são apresentados na Seção 5.
 
 ## 2. Desenvolvimento da aplicação
 
@@ -35,9 +39,9 @@ Hospedeiro: SSH 127.0.0.1:2222 ─────────────── NAT
 
 No `/benchmark`, o buffer é construído em memória pela repetição da sequência de bytes de 0 a 255 até o tamanho solicitado. Em cada iteração é calculado um novo SHA-256 do **mesmo buffer inteiro**; os digests binários são incorporados a um hash agregador que produz o resultado final. O serviço informa separadamente o tempo de preparar o buffer e o tempo do laço de hashing. Os parâmetros controlam o trabalho: `data_size_mb × iterations` expressa o volume lógico processado, não a quantidade de RAM simultaneamente alocada. No perfil experimental, 10 MiB × 100 iterações correspondem a 1.000 MiB processados logicamente por requisição. O buffer não é lido de disco durante o laço, e não há escrita de arquivo por requisição. Trata-se de uma **carga sintética**, não de uma aplicação de produção com arquivos reais ou uma simulação integral de I/O.
 
-Os endpoints de arquivo leem blocos de 64 KiB e limitam o upload a 16 MiB. O digest esperado em `/verify` deve ter 64 caracteres hexadecimais e a comparação emprega `hmac.compare_digest`; isso compara os valores, mas não autentica a origem do digest esperado. Para `/benchmark`, o esquema exige inteiros estritos, 1–32 MiB, 1–1.000 iterações e produto de no máximo 8.192 MiB. O middleware limita o corpo a 17 MiB nos endpoints multipart, a 4 KiB nos demais e a oito requisições admitidas simultaneamente **por worker**; tamanhos excessivos são rejeitados com HTTP 413 e excesso de concorrência pode gerar HTTP 503. Restrições de esquema produzem erro de validação. Esses limites reduzem o risco de consumo descontrolado de recursos, mas a presença de oito workers não torna ilimitada a capacidade da VM.
+Os endpoints de arquivo leem blocos de 64 KiB e limitam o upload a 16 MiB. O digest esperado em `/verify` deve ter 64 caracteres hexadecimais e a comparação emprega `hmac.compare_digest`; isso compara os valores. Para `/benchmark`, o esquema exige inteiros estritos, 1–32 MiB, 1–1.000 iterações e produto de no máximo 8.192 MiB. O middleware limita o corpo a 17 MiB nos endpoints multipart, a 4 KiB nos demais e a oito requisições admitidas simultaneamente **por worker**; tamanhos excessivos são rejeitados com HTTP 413 e excesso de concorrência pode gerar HTTP 503. Restrições de esquema produzem erro de validação. Esses limites reduzem o risco de consumo descontrolado de recursos, mas a presença de oito workers não torna ilimitada a capacidade da VM.
 
-Os testes automatizados cobrem os quatro endpoints, digest conhecido, determinismo do benchmark, processamento integral do buffer, validações, fronteiras de upload e limites do corpo HTTP ([`tests/test_api.py`](../tests/test_api.py), [`tests/test_hashing.py`](../tests/test_hashing.py)). O roteiro experimental registra **34 testes da aplicação aprovados e um aviso de depreciação** na VM de 1 vCPU; essa contagem se refere à suíte disponível naquele clone, não aos testes de análise acrescentados no hospedeiro posteriormente. [PENDENTE: captura ou log persistido da execução de `pytest` dentro da VM para evidência visual independente da contagem.] A captura abaixo comprova a API acessível pelo encaminhamento NAT, mas não substitui a evidência da suíte.
+O endpoint `/benchmark` executa o cálculo síncrono diretamente no worker que recebeu a requisição; enquanto o cálculo ocorre, esse worker não atende outra requisição. Os oito processos Uvicorn permitem cálculos simultâneos em processos separados. O tempo interno retornado pela API mede o cálculo, enquanto a latência HTTP do Locust também inclui espera e transporte. Os testes automatizados da aplicação e da análise podem ser executados com `.venv/bin/python -m pytest -q` após instalar `requirements.txt` e `requirements-analysis.txt`.
 
 ![Respostas de health e benchmark formatadas com jq no hospedeiro](../evidencias/manual-02-api.png)
 
@@ -45,22 +49,22 @@ Os testes automatizados cobrem os quatro endpoints, digest conhecido, determinis
 
 ## 3. Ambiente experimental
 
-Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. Em todas, a memória atribuída foi de 1.024 MiB e a API foi iniciada com oito workers Uvicorn. A VM `cpu_Bound`, de 1 vCPU, foi criada separadamente a partir da mesma imagem-base usada na cadeia dos cenários de 2–8 vCPUs. Por isso, o contraste 1 versus 2–8 vCPUs não é uma comparação dentro da mesma instância de VM. Os inventários de 2–8 vCPUs identificam Ubuntu Server 22.04.5 LTS, kernel 5.15.0-198-generic, Python 3.10.12 e o modelo de CPU **apresentado ao convidado** como AMD Ryzen 5 5500; esse último registro não comprova, por si só, o modelo físico do hospedeiro.
+Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. Em todas, a memória atribuída foi de 1.024 MiB e a API foi iniciada com oito workers Uvicorn. O hospedeiro utilizou um AMD Ryzen 5 5500 com seis núcleos físicos e 12 threads. A configuração de 8 vCPUs compartilha os recursos desse hospedeiro com o sistema operacional e o gerador de carga; portanto, os resultados não representam oito núcleos físicos exclusivos.
 
 | Componente | Configuração comprovada | Evidência |
 | --- | --- | --- |
-| Sistema hospedeiro | [PENDENTE: sistema operacional e versão do hospedeiro.] | Não há inventário do hospedeiro no repositório. |
-| Processador físico e RAM do hospedeiro | [PENDENTE: modelo, núcleos/threads e memória física do hospedeiro.] | Inventários dentro da VM não identificam de forma independente o hardware físico. |
-| VirtualBox no hospedeiro | VirtualBox; [PENDENTE: versão instalada.] | Capturas de criação e redirecionamento de portas; versão não registrada. |
+| Sistema hospedeiro | Ubuntu 24.04.4 LTS, kernel 7.0.0-31-generic durante a matriz. | [`host-inventory.txt`](../results/demand-vbox-8cpu-20261014T104931Z-504345/host-inventory.txt) e [`host-os-release.txt`](../results/demand-vbox-analysis/host-os-release.txt). |
+| Processador físico e RAM do hospedeiro | AMD Ryzen 5 5500, 6 núcleos/12 threads, 15.857 MiB de RAM. | [`host-inventory.txt`](../results/demand-vbox-8cpu-20261014T104931Z-504345/host-inventory.txt), coletado no hospedeiro. |
+| VirtualBox no hospedeiro | VirtualBox 7.2.20r175154. | [`host-inventory.txt`](../results/demand-vbox-8cpu-20261014T104931Z-504345/host-inventory.txt). |
 | Sistema convidado | Ubuntu Server 22.04.5 LTS; kernel 5.15.0-198-generic nos inventários de 2–8 vCPUs. | [`inventory.txt` de 2 vCPUs](../results/vbox-2cpu-20261013T140512Z/inventory.txt) e inventários dos demais cenários. |
 | vCPUs e RAM da VM | 1, 2, 4, 6 ou 8 vCPUs; 1.024 MiB atribuídos. | Captura de configuração de 1 vCPU, `nproc` na VM e inventários/arquivos de resultados. |
-| Python na VM | 3.10.12 nos inventários de 2–8 vCPUs; [PENDENTE: registro persistido da versão Python na VM de 1 vCPU.] | Inventários dos cenários de 2–8 vCPUs. |
+| Python na VM | 3.10.12 em 1–8 vCPUs. | `guest-inventory.txt` em cada bateria definitiva. |
 | API | FastAPI 0.115.14, Uvicorn 0.34.3, Pydantic 2.11.7; oito workers. | [`requirements.txt`](../requirements.txt), inventários e registros de deploy. |
 | Gerador externo | Locust 2.37.14 em Python 3.12.3, no hospedeiro, fixado à CPU lógica 0. | `config.txt` e `dependencies.txt` das repetições; roteiro de execução. |
 
-**Tabela 2 — Infraestrutura conhecida e lacunas de inventário.** Os registros do convidado e do gerador estão separados para não atribuir à máquina física características observadas dentro da VM.
+**Tabela 2 — Infraestrutura registrada.** Os registros do convidado e do gerador estão separados para não atribuir à máquina física características observadas dentro da VM.
 
-A criação da VM utilizou o VDI fornecido para a atividade, selecionado na interface do VirtualBox. As capturas registram 1 vCPU e 1.024 MiB para a VM de demonstração, além das regras NAT TCP `127.0.0.1:2222 → VM:22` (SSH) e `127.0.0.1:8000 → VM:8000` (API). O VDI e as capturas documentam o procedimento; [PENDENTE: captura da configuração final de vCPU/RAM de cada uma das VMs de 2, 4, 6 e 8 vCPUs, caso seja exigida evidência visual individual.] Os inventários textuais registram as contagens de vCPU desses cenários.
+A criação da VM utilizou o VDI fornecido para a atividade, selecionado na interface do VirtualBox. As capturas registram 1 vCPU e 1.024 MiB para a VM de demonstração, além das regras NAT TCP `127.0.0.1:2222 → VM:22` (SSH) e `127.0.0.1:8000 → VM:8000` (API). As configurações de 2, 4, 6 e 8 vCPUs não possuem capturas individuais de tela no relatório; suas contagens constam nos inventários textuais e nos estados preservados por snapshots.
 
 ![1 vCPU e 1024 MiB definidos na criação da VM](../evidencias/configuracao-hardware.png)
 
@@ -78,143 +82,151 @@ A criação da VM utilizou o VDI fornecido para a atividade, selecionado na inte
 
 **Figura 6 — Conferência dentro da VM de 1 vCPU.** O prompt `osboxes@osboxes`, `nproc=1` e `free -m` registram a instância efetivamente iniciada. A captura foi feita após a bateria e mostra 26 MiB de swap ocupado naquele instante; a análise de swap **durante** os testes usa os arquivos `vmstat`, não essa imagem.
 
-O código foi clonado por HTTPS na branch `cpu-bound`, commit registrado `41f0bec`, para `/home/osboxes/atividade-2-git/cpu-bound` na VM de 1 vCPU. O serviço foi iniciado em `0.0.0.0:8000`, com oito workers e sem access log. Os detalhes operacionais, inclusive instalação, testes e acesso SSH, constam no Apêndice A. A Figura 2 comprova o deploy acessível do hospedeiro. [PENDENTE: captura explícita dos oito workers em execução ou do comando de inicialização na VM, se a disciplina exigir evidência visual além dos registros textuais.]
-
+O código foi clonado por HTTPS na branch `cpu-bound`, para `/home/osboxes/atividade-2-git/cpu-bound`. O serviço foi iniciado em `0.0.0.0:8000`, com oito workers e sem access log. A reprodução dos gráficos e o estado final da VM constam no Apêndice A.
 ## 4. Metodologia experimental
 
-O experimento variou a quantidade de vCPUs atribuídas à VM e manteve fixos a RAM, o número de workers, o payload e o perfil do gerador. O Locust executou fora da VM, no hospedeiro. Cada usuário virtual realizou `POST /benchmark`, aguardou a resposta e iniciou outra solicitação sem espera adicional; portanto, o modelo é **fechado**, com 32 usuários concorrentes configurados, e a taxa de chegada observada depende do tempo de resposta. O script de carga exige resposta HTTP 200 e confere campos essenciais do JSON. Antes das medições, o roteiro registra um aquecimento de 32 chamadas com respostas 200 na VM de 1 vCPU.
+A matriz definitiva cruzou cinco provisionamentos (1, 2, 4, 6 e 8 vCPUs) com cinco demandas (1, 2, 4, 8 e 16 usuários simultâneos). Cada combinação teve três repetições de 120 s, totalizando 75 execuções. Cada usuário do Locust enviou `POST /benchmark` com 10 MiB × 100 iterações de SHA-256, aguardou a resposta e repetiu sem espera adicional. A API permaneceu com oito workers Uvicorn e a VM com 1.024 MiB de RAM. Trata-se de carga fechada: quando a latência cresce, o próprio usuário virtual reduz a frequência de novas chamadas.
 
-| Item | Configuração |
+| Variável | Valor e controle |
 | --- | --- |
-| Endpoint e corpo | `POST /benchmark`, `{"data_size_mb":10,"iterations":100}`. |
-| Trabalho lógico | 1.000 MiB de dados submetidos a SHA-256 por requisição; buffer residente de 10 MiB. |
-| Usuários e subida | 32 usuários; subida de 32 usuários/s; espera adicional de 0 s. |
-| Duração | 60 s por execução do Locust; timeout HTTP de 120 s no cliente. |
-| Repetições | Três selecionadas por configuração; 19 arquivos de execução preservados no total, 15 selecionados. |
-| Recursos e servidor | 1.024 MiB de RAM; oito workers Uvicorn; vCPUs variáveis. |
-| Local da carga | Hospedeiro; Locust 2.37.14, fixado na CPU lógica 0 com `taskset`. |
-| Coleta na VM | `monitor.py` com amostras próximas de 1 s e `vmstat -n 1`; coleta iniciada antes do Locust e encerrada depois. |
+| Provisionamento | 1, 2, 4, 6 e 8 vCPUs; 1.024 MiB de RAM em todos os cenários. |
+| Demanda | 1, 2, 4, 8 e 16 usuários; três repetições por ponto. |
+| Trabalho | `POST /benchmark`, 10 MiB × 100 iterações; oito workers. |
+| Duração | 120 s por repetição, conforme configuração e log do Locust. |
+| Medição | Locust e registro individual de respostas no hospedeiro; `monitor.py` e `vmstat` na VM, iniciados antes da carga. |
+| Janelas de comparação | A partir do primeiro registro com todos os usuários ativos: 30 s de aquecimento; descartam-se também os 5 s finais do histórico. Restam 79–80 s efetivos em cada execução. |
 
-**Tabela 3 — Parâmetros do ensaio comparativo.** Fonte: `config.txt` de cada repetição selecionada e scripts de carga/monitoramento.
+**Tabela 3 — Parâmetros da matriz definitiva.** Fontes: manifestos e `config.txt` das cinco [baterias](../results/), conferidos pela [auditoria](../results/demand-vbox-analysis/auditoria.csv).
 
-| Cenário | VM e origem | Repetições selecionadas | Excluídas do resumo |
-| ---: | --- | --- | --- |
-| 1 vCPU | `cpu_Bound`, VM separada da mesma imagem-base | 1, 2, 3 | Nenhuma. |
-| 2 vCPUs | Cadeia `cpu__bound_2cpu` | 1, 2, 4 | 3: monitor terminou 7 s antes da carga. |
-| 4 vCPUs | Mesma cadeia | 1, 4, 5 | 2: monitor terminou 5 s antes; 3: sem sobreposição. |
-| 6 vCPUs | Mesma cadeia | 1, 2, 3 | Nenhuma. |
-| 8 vCPUs | Mesma cadeia | 2, 3, 4 | 1: sem sobreposição. |
+O [analisador](../scripts/demand_curve_analysis.py) usa a mesma janela por execução para CPU, RAM e respostas. A vazão é o número de respostas **bem-sucedidas concluídas** na janela dividido por sua duração; o total de requisições é o número de respostas concluídas nessa janela. A latência média e o p95 consideram somente respostas bem-sucedidas que começaram e terminaram dentro dela. Logo, o ponto p95 apresentado é a **mediana dos p95 das três repetições**, e não um p95 global nem a média de percentis. A CPU é `system_cpu_percent` do monitor, percentual agregado de toda a VM normalizado à capacidade provisionada (escala 0–100), e não a soma dos workers. A RAM representa a média de bytes usados na VM, convertida para MiB. O `vmstat` registra swap alocada e tráfego de entrada/saída durante a coleta inteira; sem timestamps por amostra nesse arquivo, esses valores são diagnósticos e não médias alinhadas à janela HTTP.
 
-**Tabela 4 — Cenários e auditoria das repetições.** Fonte: [`auditoria.csv`](../results/virtualbox-graficos/auditoria.csv) e diretórios `results/vbox-*`.
+A [auditoria por execução](../results/demand-vbox-analysis/auditoria.csv) verificou manifesto, inventário de vCPUs/RAM, configuração, duração observada, contagens finais do Locust contra `requests.csv`, timestamps, arquivos obrigatórios, cobertura de monitoramento (mínimo de 95% dos segundos da janela), falhas, timeouts e swap. Arquivos ausentes ou vazios, parâmetros divergentes, duração insuficiente, contagens incoerentes ou monitor incompleto invalidariam uma execução; nenhum limiar de vazão, latência ou CPU foi usado para selecionar resultados. Todos os 75 ensaios da matriz passaram. Houve 40.722 respostas concluídas e zero falhas/timeouts nos testes completos de 120 s; na janela comparável, 26.967 respostas e zero falhas. A execução incompleta de 32 usuários em 1 vCPU foi preservada, marcada como **fora da matriz** e excluída. As campanhas anteriores de 32 usuários por 60 s também permanecem arquivadas, sem entrar nas tabelas ou gráficos abaixo.
 
-A variável independente principal foi a quantidade de vCPUs. As variáveis dependentes foram utilização agregada de CPU da VM, memória usada, vazão em requisições por segundo, latência HTTP média e p95, quantidade de respostas e falhas. RAM, workers, parâmetros do benchmark, número de usuários, taxa de subida, duração e espera foram controlados por configuração. O estado físico do hospedeiro, temperatura, frequência efetiva e competição por recursos **não** foram medidos como variáveis controladas. A ordem 2 → 4 → 6 → 8 vCPUs não foi randomizada; 1 vCPU foi medido posteriormente em outra VM.
-
-| Métrica | Fonte e tratamento | Unidade/interpretação |
-| --- | --- | --- |
-| CPU da VM | `system_cpu_percent` de `repN-monitor.csv`, média das amostras dentro da janela real da carga; mediana das médias de três repetições. | %, agregado de todas as vCPUs da VM na escala 0–100; não é soma dos percentuais dos workers. |
-| RAM | `ram_used_bytes` do monitor; máximo dentro da janela em cada repetição e mediana dos três máximos. | MiB usados pela VM inteira, não apenas RSS da API. |
-| Vazão e latência média | Resumo final de `locust.log` por repetição; mediana entre três repetições. | req/s e ms de resposta HTTP. |
-| p95 | Percentil aproximado final do Locust por repetição; mediana dos três p95, não percentil combinado. | ms; cerca de 95% das respostas de cada execução ficam nesse limite ou abaixo. |
-| Falhas | Contagem final do Locust, inclusive respostas classificadas como inconsistentes pelo script. | número de requisições com falha. |
-| Swap | `repN-vmstat.txt`; despreza-se a primeira linha numérica, média desde o boot. | KiB alocados e entrada/saída de swap durante a coleta. |
-
-**Tabela 5 — Métricas, fontes e unidades.** CPU e RAM são métricas da VM; latência e vazão são métricas HTTP observadas pelo Locust.
-
-As janelas efetivas são os horários de início e encerramento em `locust.log`, convertidos do horário local do hospedeiro para UTC. Apenas amostras do monitor dentro dessas janelas entram nas médias de CPU e máximos de RAM. As 15 repetições selecionadas têm de 58 a 60 amostras coincidentes; as quatro demais foram preservadas e identificadas em [`auditoria.csv`](../results/virtualbox-graficos/auditoria.csv), mas não sustentam inferências de recurso durante a carga. As métricas finais HTTP vêm do log, pois o último CSV periódico pode anteceder o resumo de encerramento. Os dados por repetição e as regras de análise estão em [`repeticoes.csv`](../results/virtualbox-graficos/repeticoes.csv) e [`scripts/virtualbox_analysis.py`](../scripts/virtualbox_analysis.py).
+As séries temporais usam apenas as linhas `Aggregated` do histórico real do Locust. Calcula-se as requisições por segundo(RPS) de cada intervalo observado de 5 s pela **diferença dos contadores cumulativos** nas duas extremidades; não há interpolação de limites ausentes. As três séries de uma mesma combinação são alinhadas por tempo decorrido e resumidas por mediana e amplitude mínimo–máximo. A linha vertical tracejada marca aproximadamente o fim do aquecimento inicial nos gráficos temporais; os limites exatos da janela analítica de cada repetição estão em [`repeticoes.csv`](../results/demand-vbox-analysis/repeticoes.csv).
 
 ## 5. Resultados e discussão
 
-Todos os valores centrais da Tabela 6 são medianas das **três repetições selecionadas** de cada cenário, não estatísticas calculadas sobre uma única reunião de respostas. A vazão e a latência média vêm dos resumos finais do Locust; a CPU é a mediana das médias temporais e a RAM é a mediana dos máximos amostrados. O p95 é aproximado pelo Locust. O [resumo derivado dos dados experimentais](../results/virtualbox-graficos/resumo_por_cpu.csv) permite conferir os números, e os arquivos individuais continuam em [`results/vbox-*`](../results/).
+As tabelas [por repetição](../results/demand-vbox-analysis/repeticoes.csv) e [por combinação](../results/demand-vbox-analysis/resumo.csv) reproduzem todos os valores das figuras. Cada ponto dos gráficos de demanda é a mediana de três repetições. As figuras mostram somente as linhas centrais; os mínimos e máximos permanecem nas tabelas derivadas. Todas as métricas quantitativas desta seção se referem à matriz de 120 s, salvo indicação contrária.
 
-| vCPUs | Requisições nas três repetições | Falhas | Vazão (req/s) | Latência média (ms) | p95 (ms) | CPU da VM (%) | Pico de RAM (MiB) |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 321 | 0 | 1,81 | 14.162 | 33.000 | 99,1 | 647,9 |
-| 2 | 642 | 0 | 3,59 | 8.126 | 12.000 | 99,4 | 520,2 |
-| 4 | 1.292 | 0 | 7,16 | 4.098 | 14.000 | 99,0 | 512,8 |
-| 6 | 1.827 | 0 | 10,13 | 3.016 | 10.000 | 98,5 | 526,5 |
-| 8 | 2.260 | 0 | 12,72 | 2.419 | 7.800 | 98,4 | 531,8 |
+### 5.1. Efeito da demanda sobre a vazão
 
-**Tabela 6 — Resultados comparativos do VirtualBox.** As 15 repetições selecionadas totalizam 6.342 requisições sem falhas registradas. As contagens são somas; as demais colunas numéricas de desempenho/recurso são medianas entre repetições. Fonte: [`repeticoes.csv`](../results/virtualbox-graficos/repeticoes.csv) e [`resumo_por_cpu.csv`](../results/virtualbox-graficos/resumo_por_cpu.csv).
+![Vazão mediana e amplitude por demanda e provisionamento](figuras/cpu-bound/vazao-vs-demanda.png)
 
-### 5.1. Utilização de CPU
+**Figura 7 — Vazão em função da demanda.** Eixo horizontal: usuários simultâneos; vertical: respostas bem-sucedidas por segundo na janela comparável. Cores identificam o mesmo provisionamento em todos os gráficos de demanda. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-![Utilização de CPU da VM durante as janelas reais de carga](../results/virtualbox-graficos/cpu_ao_longo_do_tempo.png)
+Com apenas um usuário, os cinco cenários ficaram entre 1,81 e 1,86 req/s. Esse perfil oferece, no máximo, uma solicitação em andamento por usuário e não ocupa todos os workers; portanto, mais vCPUs não elevaram materialmente a vazão nesse ponto. Em 1 vCPU, a mediana permaneceu entre 1,81 e 1,82 req/s de 1 a 16 usuários, enquanto o p95 aumentou fortemente. Em 8 vCPUs, a vazão passou de 1,86 req/s com 1 usuário a 12,49 req/s com 16. O patamar de 8 vCPUs ainda cresceu de 11,01 para 12,49 req/s entre 8 e 16 usuários.
 
-**Figura 7 — CPU durante a carga.** Eixo horizontal: segundos desde o início do Locust; eixo vertical: utilização agregada da CPU da VM, em %. Os cinco painéis representam as quantidades de vCPU; as três curvas de cada painel são as repetições selecionadas.
 
-Após a subida inicial da carga, a utilização se mantém próxima do teto da escala em todos os cenários. As medianas das médias temporais variam de 98,4% a 99,4%. Como o percentual agrega todas as vCPUs da VM em uma escala de 0 a 100%, 99% em 8 vCPUs representa uma quantidade maior de trabalho computacional simultâneo do que 99% em 1 vCPU. O gráfico mostra pressão contínua de CPU sob **essa carga fixa**, mas, isoladamente, não localiza a demanda exata em que a capacidade passa a ser insuficiente.
 
-### 5.2. Vazão
+| Usuários | 1 vCPU | 2 vCPUs | 4 vCPUs | 6 vCPUs | 8 vCPUs |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1,81 | 1,86 | 1,86 | 1,85 | 1,86 |
+| 2 | 1,81 | 3,65 | 3,68 | 3,67 | 3,72 |
+| 4 | 1,82 | 1,85 | 5,56 | 7,38 | 7,39 |
+| 8 | 1,82 | 1,86 | 5,54 | 9,24 | 11,01 |
+| 16 | 1,82 | 3,66 | 7,40 | 11,06 | 12,49 |
 
-![Vazão por segundo nas janelas de carga](../results/virtualbox-graficos/vazao_ao_longo_do_tempo.png)
+**Tabela 4 — Vazão mediana (req/s) nas janelas comparáveis.** Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv). Os valores são arredondados a duas casas.
 
-**Figura 8 — Vazão observada ao longo do teste.** Eixo horizontal: segundos desde o início do Locust; eixo vertical: requisições concluídas por segundo (req/s). Os painéis distinguem 1, 2, 4, 6 e 8 vCPUs; cada painel apresenta três repetições.
+Podemos verificar que apesar do aumento de vazão com o aumento de vCPUs para trabalhar, o acrescimo da vazão não é linear.
 
-Depois da subida dos 32 usuários, as curvas se aproximam de faixas características de cada cenário. A vazão mediana final aumenta de 1,81 req/s em 1 vCPU para 3,59, 7,16, 10,13 e 12,72 req/s em 2, 4, 6 e 8 vCPUs. A evolução temporal permite observar a aproximação a um patamar em cada execução, mas os valores comparativos vêm do resumo final de `locust.log`, e não de um ponto isolado do CSV histórico. Como os usuários esperam a resposta anterior antes de iniciar outra solicitação, a taxa realizada não é uma taxa de chegada independente do servidor.
+O cenário de 2 vCPUs não foi monotônico: 3,65 req/s com 2 usuários, cerca de 1,85 com 4 e 8, e 3,66 com 16. Em 4 usuários, as três repetições variaram de 1,85 a 3,66 req/s; em 16 usuários, de 1,86 a 3,67 req/s. A queda não foi descartada como anomalia: os arquivos passaram nos critérios de validade e a variação entre repetições está registrada em `resumo.csv`. CPU, latência e série temporal ajudam a descrevê-la, mas a instrumentação não permite determinar sua causa. Uma hipótese é a distribuição desigual de conexões persistentes entre os processos Uvicorn; o Locust usa `HttpUser`, e cada usuário pode reutilizar sua conexão. Essa hipótese não foi testada por telemetria de conexões por worker.
 
-### 5.3. Latência e dispersão entre repetições
+### 5.2. Efeito da demanda sobre a latência
 
-![Vazão e p95 de cada repetição selecionada](../results/virtualbox-graficos/variacao_repeticoes.png)
+![Latência p95 mediana das repetições por demanda](figuras/cpu-bound/latencia-p95-vs-demanda.png)
 
-**Figura 9 — Variação entre repetições.** Eixo horizontal: vCPUs da VM; eixo vertical do painel superior: vazão em req/s; eixo vertical do inferior: p95 em segundos. Cada ponto é uma repetição selecionada e o traço indica a mediana do grupo.
+**Figura 8 — Latência p95 em função da demanda.** Cada ponto é a mediana dos p95 calculados separadamente nas três repetições; seus extremos estão em `resumo.csv`. A escala vertical é linear e está em milissegundos. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-A latência média mediana cai de 14.162 ms em 1 vCPU para 2.419 ms em 8 vCPUs, uma redução de aproximadamente 82,9% no perfil medido. A mediana do p95 cai de 33.000 para 7.800 ms, mas não diminui estritamente a cada aumento de vCPU: 4 vCPUs apresentaram 14.000 ms, acima dos 12.000 ms de 2 vCPUs. Os pontos revelam variação importante de cauda; por exemplo, as três repetições selecionadas de 8 vCPUs tiveram p95 de 7.800, 7.300 e 13.000 ms. Assim, a tendência de queda da latência média é mais regular que a do p95. Três repetições descrevem a dispersão observada, mas não fundamentam um intervalo de confiança nem uma afirmação de diferença estatística.
+Em 1 vCPU, o p95 mediano cresceu de 559 ms com 1 usuário a 14.346 ms com 16, enquanto a vazão permaneceu quase constante. Essa combinação é compatível com espera crescente por capacidade de processamento. Em 8 vCPUs, o p95 permaneceu próximo de 540–546 ms até 4 usuários, chegou a 1.095 ms com 8 e a 2.812 ms com 16. A configuração de 6 vCPUs registrou 548 ms com 4 usuários, 1.619 ms com 8 e 2.723 ms com 16. O cenário de 2 vCPUs mostrou 2.169 ms com 4 usuários e 4.313 ms com 8, coerentes com a menor vazão desses pontos, mas sua variação entre repetições impede inferir um mecanismo único.
 
-### 5.4. Consumo de memória
+![Latência média por demanda e provisionamento](figuras/cpu-bound/latencia-media-vs-demanda.png)
 
-![Memória usada pela VM durante as janelas reais de carga](../results/virtualbox-graficos/ram_ao_longo_do_tempo.png)
+**Figura 9 — Latência média em função da demanda.** A média é calculada dentro de cada repetição, e a figura apresenta a mediana entre repetições. A amplitude mínimo–máximo está em `resumo.csv`. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-**Figura 10 — RAM usada durante a carga.** Eixo horizontal: segundos desde o início do Locust; eixo vertical: memória usada pela VM em MiB. Cada painel representa uma configuração de vCPU e cada curva, uma repetição selecionada.
+A latência média confirma a tendência, sem substituir a medida de cauda: com 16 usuários, as medianas foram 8.390 ms em 1 vCPU, 4.329 ms em 2, 2.157 ms em 4, 1.440 ms em 6 e 1.274 ms em 8. O p95 de 8 vCPUs com 16 usuários (2.812 ms) ficou ligeiramente acima do de 6 vCPUs (2.723 ms); três repetições e amplitudes sobrepostas não sustentam concluir que a configuração maior piorou a cauda de forma sistemática.
 
-A memória usada pela VM permaneceu relativamente estável ao longo de cada minuto. A mediana dos picos foi de 647,9 MiB em 1 vCPU e de 512,8 a 531,8 MiB em 2–8 vCPUs, abaixo dos 1.024 MiB atribuídos. Essa métrica inclui processos e caches do sistema convidado; portanto, a diferença entre 1 vCPU e os demais cenários não pode ser atribuída apenas à aplicação ou ao número de vCPUs, sobretudo porque o primeiro foi medido em outra VM. Nos `repN-vmstat.txt`, os cenários de 2–8 vCPUs apresentam `swpd=0`; na VM de 1 vCPU havia cerca de 524 KiB de swap alocado durante os testes, com `si=0` e `so=0`, sem entrada/saída de swap registrada na coleta. O valor de 26 MiB mostrado na Figura 6 pertence a um instante posterior e não altera essa leitura.
+### 5.3. Comportamento temporal das requisições por segundo
 
-### 5.5. Saturação e curva de demanda
+![RPS temporal de 1 vCPU](figuras/cpu-bound/rps-temporal-1vcpu.png)
 
-A combinação de CPU quase integralmente ocupada, vazão em faixas relativamente estáveis ao longo dos 60 s e tempos de resposta de vários segundos é **compatível** com forte restrição de processamento para 32 usuários e 10 MiB × 100 iterações por chamada. Porém, a instrumentação não mediu profundidade de fila nem uso do gerador de carga em cada repetição, e o modelo fechado do Locust reduz a taxa de novas solicitações quando as respostas demoram. As contagens de falhas foram zero, o que mostra sucesso das solicitações concluídas, não ausência de espera ou reserva de capacidade.
+**Figura 10 — RPS temporal em 1 vCPU.** Cinco painéis representam os níveis de demanda, com a mesma escala vertical; linha = mediana de três repetições. A linha vertical tracejada indica aproximadamente o fim do aquecimento; mínimos e máximos estão no CSV. Fonte: [`rps-temporal-resumo.csv`](../results/demand-vbox-analysis/rps-temporal-resumo.csv).
 
-**[PENDENTE: realizar ou recuperar, no VirtualBox, execuções com diferentes níveis de usuários simultâneos, mantendo vCPUs, RAM, workers e payload fixos, para construir uma curva de demanda e estimar o ponto de saturação.]** Os arquivos oficiais disponíveis variam vCPUs com **32 usuários fixos**. A Figura 8 é uma série temporal de vazão sob uma única demanda configurada, não uma curva vazão × usuários. Há apenas um registro isolado de configuração para 10 usuários em `results/run-20261013T145841-27630`, sem resultados suficientes para inclusão. O piloto preliminar em Docker foi retirado do projeto a pedido do grupo; seus dados brutos e gráficos não estão disponíveis e não substituem medições exigidas na VM.
+![RPS temporal de 2 vCPUs](figuras/cpu-bound/rps-temporal-2vcpu.png)
 
-### 5.6. Efeito do provisionamento e escalabilidade
+**Figura 11 — RPS temporal em 2 vCPUs.** Mesma convenção da Figura 10. As diferenças entre repetições podem ser conferidas no CSV temporal.
 
-![Painel comparativo de vazão, latência, CPU e RAM por vCPU](../results/virtualbox-graficos/painel_comparativo.png)
+![RPS temporal de 4 vCPUs](figuras/cpu-bound/rps-temporal-4vcpu.png)
 
-**Figura 11 — Comparação dos cinco provisionamentos.** Eixo horizontal de todos os painéis: vCPUs da VM. Eixos verticais: vazão mediana em req/s, latência média e p95 em segundos, utilização média de CPU da VM em % e mediana do pico de RAM em MiB. A linha de 1.024 MiB no painel de RAM indica a memória atribuída, não um limiar medido de falha.
+**Figura 12 — RPS temporal em 4 vCPUs.** Mesma convenção, com intervalos observados de 5 s.
 
-Com a mesma demanda configurada, acrescentar vCPUs elevou a vazão e reduziu a latência média, ao mesmo tempo que a CPU permaneceu quase integralmente ocupada. Isso é coerente com mais trabalho SHA-256 processado em paralelo pelos oito workers. O ganho de 8 vCPUs sobre 1 vCPU foi de 12,72/1,81 ≈ **7,03×** em vazão. A comparação deve ser lida como indicativa do efeito do provisionamento neste arranjo: 1 vCPU veio de outra VM, os testes ocorreram em sequência não randomizada e não há monitoramento suficiente do hospedeiro para isolar outras influências.
+![RPS temporal de 6 vCPUs](figuras/cpu-bound/rps-temporal-6vcpu.png)
 
-![Ganho e eficiência relativos ao cenário de uma vCPU](../results/virtualbox-graficos/ganho_eficiencia.png)
+**Figura 13 — RPS temporal em 6 vCPUs.** Mesma convenção, alinhada ao primeiro registro de cada execução.
 
-**Figura 12 — Speedup e eficiência relativa.** Eixo horizontal: vCPUs da VM; eixo vertical superior: ganho de vazão relativo a 1 vCPU (×); eixo vertical inferior: ganho observado dividido pelo número de vCPUs (%). A linha de ganho linear é apenas referência matemática, não previsão de desempenho.
+![RPS temporal de 8 vCPUs](figuras/cpu-bound/rps-temporal-8vcpu.png)
 
-Se `R_n` é a vazão mediana do cenário de `n` vCPUs, então `speedup_n = R_n/R_1` e `eficiência_n = 100 × R_n/(n × R_1)`. Aplicando essas definições às medianas observadas:
+**Figura 14 — RPS temporal em 8 vCPUs.** Mesma convenção. A série termina no último intervalo completo presente no histórico; não há pontos fabricados até 120 s.
 
-| vCPUs | Speedup relativo a 1 vCPU | Eficiência relativa |
-| ---: | ---: | ---: |
-| 1 | 1,00× | 100,0% |
-| 2 | 1,98× | 99,2% |
-| 4 | 3,96× | 98,9% |
-| 6 | 5,60× | 93,3% |
-| 8 | 7,03× | 87,8% |
+As curvas de 1 vCPU permanecem próximas de 1,8 req/s apesar do aumento de usuários, ao passo que 6 e 8 vCPUs sustentam níveis progressivamente maiores. Em 2 vCPUs, os mínimos e máximos registrados para 4 e 16 usuários diferem durante boa parte do ensaio, em vez de apenas em um instante isolado; essa dispersão permanece documentada no CSV temporal. O gráfico permite observar oscilações de 5 s, mas não prova sua origem. O aquecimento de 30 s foi aplicado de forma idêntica à análise principal; as séries completas o exibem para contextualizar o comportamento, sem misturá-lo às medianas das Figuras 7–9.
 
-**Tabela 7 — Escalabilidade de vazão.** Os quocientes usam valores arredondados a duas casas do [`resumo_por_cpu.csv`](../results/virtualbox-graficos/resumo_por_cpu.csv); pequenas diferenças de décimos podem surgir do arredondamento. A queda da eficiência relativa em 6 e 8 vCPUs pode refletir custos de escalonamento, comunicação, recursos compartilhados ou condições do hospedeiro, mas os dados não permitem repartir causalmente essas parcelas.
+### 5.4. Utilização de CPU e possíveis pontos de saturação
 
-## 6. Limitações dos experimentos
+![Utilização média de CPU da VM por demanda](figuras/cpu-bound/cpu-vs-demanda.png)
 
-Os resultados representam uma VM virtualizada sobre recursos físicos compartilhados, com possíveis oscilações de escalonamento, frequência e competição do hospedeiro que não foram monitoradas. O inventário do convidado expõe um modelo de CPU, mas faltam os dados físicos e a versão do VirtualBox do hospedeiro; a VM de 1 vCPU foi criada separadamente. Além disso, a sequência 2 → 4 → 6 → 8 vCPUs não foi randomizada. Esses fatores limitam a atribuição de toda a diferença observada exclusivamente ao número de vCPUs.
+**Figura 15 — CPU total da VM em função da demanda.** Percentual agregado normalizado à capacidade de cada provisionamento, mediana das médias temporais por repetição; a linha de 95% é referência operacional de alta utilização. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-Cada repetição durou 60 s e cada cenário contribuiu com três repetições selecionadas. Isso é suficiente para descrever o comportamento medido, mas não para avaliar efeitos de longo prazo, sazonalidade térmica ou variabilidade com precisão estatística. Quatro execuções adicionais tiveram monitoramento parcial ou sem sobreposição e foram excluídas do resumo; os dados HTTP permaneceram preservados para auditoria. As janelas de CPU e RAM incluem quase todo o minuto (58–60 amostras), mas o início exato e o fim entre amostras não são observados continuamente. Fixar o Locust à CPU lógica 0 não comprova que a VM nunca tenha disputado essa CPU física; não há telemetria do hospedeiro durante cada ensaio para quantificar essa interação.
+Em 1 vCPU, a utilização já foi 99,8% com um usuário e ficou aproximadamente em 100% nos demais níveis. A vazão quase constante e o p95 crescente fornecem evidência conjunta de forte restrição de CPU em toda a faixa testada; o primeiro nível já está próximo do limite, de modo que não é possível localizar o limiar abaixo de um usuário. Em 4 e 6 vCPUs, o primeiro nível testado acima de 95% foi 16 usuários, com medianas próximas de 100%; entretanto, a vazão ainda cresceu entre 8 e 16 usuários. Há pressão de CPU e degradação da latência, mas não confirmação de um platô de vazão. Em 8 vCPUs, a CPU mediana chegou a 87,6% com 16 usuários: a matriz não demonstrou saturação por CPU nesse cenário, embora a latência tenha aumentado.
 
-O número fixo de oito workers, inclusive em 1 vCPU, controla uma variável importante, porém implica contenção e custo de processos diferente conforme o provisionamento. A carga SHA-256 usa dados determinísticos residentes em memória; ela não representa a mistura de operações, cache, disco ou rede de um serviço real. Os 32 usuários do Locust formam uma carga fechada, não uma chegada externa com taxa independente. Sem uma varredura de usuários, filas medidas e telemetria do gerador, a identificação do ponto de saturação permanece pendente. Os tempos HTTP incluem transporte e espera, ao passo que `execution_time_ms` da API mede apenas o laço de hashing; compará-los como se fossem a mesma medida produziria interpretação incorreta.
+Em 2 vCPUs, a mediana de CPU foi 99,8% com 2 e 16 usuários, mas 51,1% com 4 e 43,2% com 8. O padrão acompanha a vazão não monotônica e varia também entre repetições; por isso, não permite identificar um ponto de saturação único. A linha de 95% não é prova isolada de saturação. O número de workers fixo, a carga fechada e a ausência de telemetria de filas e escalonamento do hospedeiro impedem uma explicação causal das oscilações.
 
-## 7. Conclusão
+### 5.5. Total de requisições atendidas
 
-O serviço CPU-bound foi implementado com hashing SHA-256 parametrizado, limites de entrada e testes automatizados, e foi medido no VirtualBox em **cinco cenários** de 1, 2, 4, 6 e 8 vCPUs, com 1.024 MiB de RAM, oito workers e 32 usuários fixos. A análise utilizou 15 execuções selecionadas de 19 preservadas. Nessas 15, foram registradas 6.342 requisições sem falhas HTTP.
+![Requisições concluídas por demanda](figuras/cpu-bound/requisicoes-totais-vs-demanda.png)
 
-Sob o perfil de 10 MiB × 100 iterações, a vazão mediana cresceu de **1,81 para 12,72 req/s** e a latência média mediana caiu de **14,16 para 2,42 s** entre 1 e 8 vCPUs. O ganho de vazão foi **7,03×**, com eficiência relativa aproximada de **87,8%** em 8 vCPUs. A utilização média agregada de CPU ficou entre **98,4% e 99,4%**; a mediana dos picos de RAM permaneceu abaixo dos 1.024 MiB atribuídos. Os dados sustentam que, nesse perfil e nas condições observadas, aumentar vCPUs elevou a capacidade e diminuiu a latência média, enquanto a CPU continuou sob forte pressão. Não sustentam uma localização quantitativa do ponto de saturação por demanda, pois os ensaios oficiais não variaram o número de usuários. A procedência da VM de 1 vCPU e a ausência de telemetria do hospedeiro limitam a interpretação causal do speedup.
+**Figura 16 — Requisições concluídas na janela comparável.** Cada ponto é a mediana das contagens de três repetições, em janelas de 79–80 s; não representa solicitações iniciadas. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
 
-## Apêndice A — Reprodução da VM e dos testes
+A contagem complementa a vazão, pois usa as mesmas respostas concluídas e a mesma janela. Com 16 usuários, as medianas foram 144, 290, 585, 874 e 999 requisições, respectivamente para 1, 2, 4, 6 e 8 vCPUs. O total nas 75 janelas foi 26.967, sem falhas. As pequenas diferenças de duração entre 79 e 80 s justificam usar req/s para comparações de capacidade mais precisas; a figura de totais confirma a ordem de grandeza do atendimento efetivo.
 
-Este roteiro consolida a execução documentada para a VM `cpu_Bound` de 1 vCPU e o procedimento aplicado aos demais provisionamentos. **VM** e **hospedeiro** são identificados em cada etapa. Os caminhos `NOVA-EXECUCAO` são exemplos para uma medição futura: escolha um nome ainda inexistente, pois o script de carga recusa sobrescrever resultados. Os comandos abaixo documentam o método; sua publicação aqui **não** significa que novos testes ou transferências foram executados durante a elaboração deste relatório.
+### 5.6. Impacto do provisionamento
+
+![Consumo médio de RAM da VM por demanda](figuras/cpu-bound/ram-vs-demanda.png)
+
+**Figura 17 — RAM usada na VM em função da demanda.** Mediana da média temporal de cada repetição, em MiB; inclui sistema operacional, aplicação e caches. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+
+A RAM mediana variou de aproximadamente 470 a 548 MiB entre os pontos, abaixo dos 1.024 MiB atribuídos. Isso não aponta esgotamento de memória física nos cenários de 2–8 vCPUs. O `vmstat` registrou, na VM separada de 1 vCPU, cerca de 194–206 MiB de swap alocada nas coletas, com até 9,3 MiB de entrada acumulada e nenhuma saída; em 2 vCPUs a swap alocada chegou a 524 KiB, e em 4–8 vCPUs foi zero. Como esse arquivo não tem timestamps por linha, tais números não podem ser atribuídos exclusivamente à janela de respostas.
+
+![Speedup e eficiência relativa por demanda](figuras/cpu-bound/speedup-eficiencia-vs-demanda.png)
+
+**Figura 18 — Ganho de vazão e eficiência relativa.** Speedup = mediana da vazão de `n` vCPUs / mediana de 1 vCPU no mesmo nível; eficiência = speedup/`n`. São quocientes descritivos, sujeitos à diferença de VM do cenário-base. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+
+Com 16 usuários, a vazão passou de 1,82 req/s em 1 vCPU a 12,49 req/s em 8 vCPUs, ganho observado de **6,85×** para oito vezes o provisionamento e eficiência relativa de **85,6%**. Com um usuário, a vazão ficou quase igual e o ganho de provisionar mais CPUs foi pequeno. Portanto, o benefício dependeu da concorrência disponível; os ganhos não foram universalmente proporcionais aos recursos. A razão 6 vCPUs/1 vCPU em 16 usuários ficou ligeiramente acima de 6 (6,07×), diferença pequena e sujeita às condições distintas da VM de 1 vCPU, à dispersão e ao arredondamento; não é evidência suficiente de escalabilidade superlinear.
+
+| vCPUs | Vazão com 16 usuários (req/s) | p95 mediano (ms) | CPU mediana (%) | Requisições medianas na janela | Speedup relativo a 1 vCPU |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 1,82 | 14.346 | 100,0 | 144 | 1,00× |
+| 2 | 3,66 | 6.025 | 100,0 | 290 | 2,01× |
+| 4 | 7,40 | 2.751 | 100,0 | 585 | 4,06× |
+| 6 | 11,06 | 2.723 | 99,9 | 874 | 6,07× |
+| 8 | 12,49 | 2.812 | 87,6 | 999 | 6,85× |
+
+**Tabela 5 — Comparação sob a maior demanda testada.** Todos os valores centrais são medianas de três repetições, exceto o speedup derivado delas. Fonte: [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv).
+
+### 5.7. Limitações e ameaças à validade
+
+Os ensaios foram sequenciais e não randomizados. Não se mediram temperatura, frequência efetiva, competição por núcleos físicos, filas da API ou utilização detalhada do gerador durante cada execução.
+
+Oito workers foram mantidos em todos os cenários para controlar a configuração do servidor, mas podem impor custos diferentes em 1 e 8 vCPUs. O teste usa SHA-256 de dados determinísticos residentes em memória e não representa uma mistura de operações reais. Três repetições mostram variação observada, sem justificar intervalos de confiança estreitos ou inferências causais. A carga fechada do Locust não mede uma taxa de chegada externa independente. O histórico temporal periódico termina antes dos 120 s completos; o arquivo individual de respostas e o log final sustentam as contagens da execução inteira, enquanto os gráficos usam apenas intervalos completos observados. Falhas HTTP e timeouts foram zero, mas isso não prova ausência de espera ou reserva de capacidade.
+
+## 6. Conclusão
+
+A demanda elevou a pressão de CPU de forma dependente do provisionamento. Em 1 vCPU, a CPU já chegou a 99,8% com um usuário; a vazão permaneceu perto de 1,8 req/s até 16 usuários, enquanto o p95 subiu de 559 para 14.346 ms. Essa combinação é o sinal mais forte de restrição de processamento na matriz. Em 4 e 6 vCPUs, 16 usuários levaram a CPU a aproximadamente 100% e elevaram a latência, mas a vazão ainda cresceu em relação a 8 usuários, de modo que um patamar de capacidade não foi demonstrado. Em 8 vCPUs, a CPU mediana máxima foi 87,6%; não se observou saturação de CPU até 16 usuários, embora a latência p95 tenha aumentado de cerca de 546 ms com 4 usuários para 2.812 ms com 16.
+
+O aumento de vCPUs melhorou a capacidade sob demanda suficiente: com 16 usuários, a vazão mediana cresceu de 1,82 para 12,49 req/s entre 1 e 8 vCPUs, e a latência média caiu de 8.390 para 1.274 ms. O ganho de 6,85× para oito vezes o provisionamento ficou abaixo da proporcionalidade ideal. Com um usuário, mais vCPUs praticamente não alteraram a vazão. O cenário de 2 vCPUs apresentou queda e dispersão não monotônicas em demandas intermediárias; as execuções são válidas e foram mantidas, mas a causa não foi identificada. Os 75 ensaios registraram 40.722 respostas concluídas, nenhuma falha e nenhum timeout no teste completo; 26.967 dessas respostas pertencem às janelas comuns de análise.
+
+As conclusões são descritivas deste ambiente virtualizado e deste benchmark. O uso de outra VM para 1 vCPU, a ordem fixa de execução, a pequena quantidade de repetições e a ausência de medição de filas e do hospedeiro durante a carga limitam a precisão de limiares de saturação e a atribuição causal dos ganhos. Os dados brutos, a [auditoria](../results/demand-vbox-analysis/auditoria.csv), as tabelas derivadas e o [script de reprodução](../scripts/build_demand_report.py) permitem revisar todos os números.
+
+## Apêndice A — Execução manual histórica e evidências visuais
 
 ### A.1. Criar a VM, habilitar SSH e verificar recursos
 
@@ -232,40 +244,32 @@ sudo systemctl status ssh
 No **hospedeiro**, confira a configuração e entre na VM:
 
 ```bash
-VBoxManage showvminfo cpu_Bound --machinereadable
 ssh -p 2222 osboxes@127.0.0.1
 ```
 
-Depois do login, execute **na VM**:
-
-```bash
-whoami
-hostname
-nproc
-free -m
-```
-
-O registro de 1 vCPU mostrou usuário e hostname `osboxes`, `nproc=1` e cerca de 957 MiB de memória visível ao sistema convidado (Figura 6). O valor visível pode ser menor que os 1.024 MiB atribuídos pela interface do VirtualBox. Para evidência, registre a tela de configuração da VM e o terminal com `nproc`/`free -m`; a captura já existente é a Figura 6.
+Ao usar outra VM com o mesmo redirecionamento de porta `2222`, a chave SSH apresentada ao hospedeiro muda. Confirme que a VM desejada está ligada e, se aparecer o aviso de chave antiga, remova apenas a entrada desse destino com `ssh-keygen -R '[127.0.0.1]:2222'` antes de conectar novamente. Esse aviso é esperado ao alternar entre VMs distintas; não identifica, por si só, uma falha do Ubuntu.
 
 ### A.2. Clonar a branch correta dentro da VM e validar a instalação
 
 O repositório foi clonado **dentro da VM** por HTTPS; não é necessária chave SSH do GitHub para essa etapa:
 
 ```bash
-cd /home/osboxes
 git clone --branch cpu-bound --single-branch \
   https://github.com/POI-2026-2-grupo15/atividade-2.git atividade-2-git
 cd atividade-2-git
 git branch --show-current
 git rev-parse --short HEAD
 cd cpu-bound
-python3 -m venv .venv
+sudo apt update
+sudo apt install -y python3.10-venv
+python3 -m venv --clear .venv
 .venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements-analysis.txt
 .venv/bin/python -m pip check
 .venv/bin/python -m pytest -q
 ```
 
-A branch é `cpu-bound`, com hífen. A execução documentada estava no commit `41f0bec`; em um clone posterior, confira a revisão antes de comparar novos números. A instalação registrou `No broken requirements found` e a suíte da aplicação passou com 34 testes e um aviso de depreciação. Não há captura persistida dessa saída; [PENDENTE: registrar print ou log de `pytest` na VM se exigido como evidência.] Não sobrescreva `atividade-2-git` se a pasta já existir: confira a cópia com `git remote -v`, `git branch --show-current` e `git rev-parse --short HEAD` ou escolha outro destino.
+O pacote `python3.10-venv` é necessário na imagem Ubuntu 22.04 usada na validação. A opção `--clear` recria uma `.venv` que tenha ficado incompleta após a falha de `ensurepip`; use-a apenas nessa pasta de trabalho, sem afetar os CSVs de resultados. A suíte completa também contém testes de análise que importam `pandas` e `matplotlib`, por isso instala-se `requirements-analysis.txt` antes de executar `pytest`.
 
 ### A.3. Iniciar a API e conferir as respostas
 
@@ -279,10 +283,17 @@ mkdir results/NOVA-EXECUCAO-1CPU
   > results/NOVA-EXECUCAO-1CPU/api.log 2>&1 &
 APP_PID=$!
 printf '%s\n' "$APP_PID" > results/NOVA-EXECUCAO-1CPU/api.pid
+for tentativa in $(seq 1 20); do
+  test -s results/NOVA-EXECUCAO-1CPU/api.log && break
+  sleep 1
+done
 tail -n 12 results/NOVA-EXECUCAO-1CPU/api.log
+ps -p "$APP_PID" -o pid,stat,args
+grep -c 'Started server process' results/NOVA-EXECUCAO-1CPU/api.log
+ps --ppid "$APP_PID" -o pid,stat,args
 ```
 
-O PID salvo identifica o processo mestre usado pelo monitor. Na execução documentada, `api.log` e `api.pid` ficaram em `results/vbox-1cpu-20261013T2036Z/`. Em **outro terminal no hospedeiro**, com `jq` instalado, consulte a API pela porta redirecionada:
+O Uvicorn é iniciado em segundo plano; a espera evita consultar `api.log` antes de o processo criar o arquivo. Se `tail` ainda falhar, confira o estado do PID e a existência da pasta antes de iniciar outra instância. Em um log novo, `grep -c` deve retornar **8** linhas de inicialização de workers; a lista de filhos do mestre permite conferir se eles continuam ativos (ela também pode incluir um processo auxiliar do Python). O PID salvo identifica o processo mestre usado pelo monitor. Na execução documentada, `api.log` e `api.pid` ficaram em `results/vbox-1cpu-20261013T2036Z/`. Em **outro terminal no hospedeiro**, com `jq` instalado, consulte a API pela porta redirecionada:
 
 ```bash
 curl --silent --show-error http://127.0.0.1:8000/health | jq .
@@ -293,7 +304,7 @@ curl --silent --show-error -H 'Content-Type: application/json' \
 
 A Figura 2 mostra as saídas reais: `status: ok` confirma o acesso HTTP; `algorithm: sha256`, `data_size_mb`, `iterations`, `total_processed_mb` e `digest` identificam o trabalho executado. `preparation_time_ms` e `execution_time_ms` são tempos internos da API. A latência observada pelo Locust inclui também transporte e espera sob concorrência. Para os prints, priorize a resposta formatada, não comandos de instalação sem saída relevante.
 
-### A.4. Aquecer, monitorar e executar três repetições
+### A.4. Executando carga de maneira manual
 
 O **hospedeiro** gera a carga; a **VM** hospeda a API, `monitor.py` e `vmstat`. Antes da primeira repetição de um cenário, o aquecimento documentado foi:
 
@@ -343,9 +354,9 @@ Somente **depois** de o Locust terminar, pare a coleta **na VM**:
 kill -TERM "$MONITOR_PID" "$VMSTAT_PID"
 ```
 
-Repita o ciclo monitor → Locust → encerramento do monitor para `rep2` e `rep3`, trocando os nomes dos arquivos e diretórios. Não reaproveite `OUTPUT_DIR`. O script grava `config.txt`, `dependencies.txt`, `locust.log` e CSVs detalhados em cada pasta `repN`; os arquivos `repN-monitor.csv` e `repN-vmstat.txt` ficam na pasta do cenário. O monitor deve cobrir toda a janela do Locust — quatro execuções históricas não satisfizeram esse critério e por isso não entram na Tabela 6.
+Repita o ciclo monitor → Locust → encerramento do monitor para `rep2` e `rep3`, trocando os nomes dos arquivos e diretórios. Não reaproveite `OUTPUT_DIR`. O script grava `config.txt`, `dependencies.txt`, `locust.log` e CSVs detalhados em cada pasta `repN`; os arquivos `repN-monitor.csv` e `repN-vmstat.txt` ficam na pasta do cenário. O monitor deve cobrir toda a janela do Locust — quatro execuções históricas não satisfizeram esse critério e foram excluídas do resumo daquela campanha, preservado separadamente.
 
-Durante uma rodada **extra de demonstração**, com os mesmos parâmetros e fora das três repetições oficiais, foram capturadas as Figuras 13–15. Ela está em [`results/print-live-1cpu`](../results/print-live-1cpu/) e serve apenas de evidência visual. Para reproduzir essa demonstração, abra `top -o %CPU` **na VM** e rode **no hospedeiro** em uma pasta nova:
+Durante uma rodada **extra de demonstração**, com os mesmos parâmetros e fora das três repetições históricas resumidas na Tabela A1, foram capturadas as Figuras A1–A3. Ela está em [`results/print-live-1cpu`](../results/print-live-1cpu/) e serve apenas de evidência visual. Para reproduzir essa demonstração, abra `top -o %CPU` **na VM** e rode **no hospedeiro** em uma pasta nova:
 
 ```bash
 mkdir results/NOVA-CAPTURA-1CPU
@@ -361,19 +372,19 @@ taskset -c 0 .venv/bin/python -m locust \
 
 ![Processos Python no top da VM durante a rodada visual extra](../evidencias/manual-03-top-carga.png)
 
-**Figura 13 — `top` na VM durante a carga visual extra.** `PID` identifica os processos; `USER=osboxes` e `COMMAND=python` permitem reconhecê-los; `RES` e `%MEM` indicam memória residente; `%CPU` é a utilização instantânea de cada processo e `TIME+` o tempo de CPU acumulado. Os três processos próximos de 31,1% e outro de 5,0% somam aproximadamente 98% de **uma** vCPU naquele instante. As médias oficiais de CPU vêm dos CSVs, não desse print.
+**Figura A1 — `top` na VM durante a carga visual extra.** `PID` identifica os processos; `USER=osboxes` e `COMMAND=python` permitem reconhecê-los; `RES` e `%MEM` indicam memória residente; `%CPU` é a utilização instantânea de cada processo e `TIME+` o tempo de CPU acumulado. Os três processos próximos de 31,1% e outro de 5,0% somam aproximadamente 98% de **uma** vCPU naquele instante. As médias da campanha histórica vêm dos CSVs, não desse print.
 
 ![Tabela do Locust durante a rodada visual extra](../evidencias/manual-04-locust-carga.png)
 
-**Figura 14 — Locust durante a rodada visual extra.** `POST /benchmark` é o endpoint sob carga; `# reqs` passou de 98 a 102 nas linhas capturadas e `# fails` permaneceu em zero. `Avg`, `Min`, `Max` e `Med` são tempos HTTP em ms; `req/s` é a taxa estimada. Os 32 usuários virtuais vêm do comando, enquanto `iterations=100` significa cem hashes por **requisição**, não cem requisições.
+**Figura A2 — Locust durante a rodada visual extra.** `POST /benchmark` é o endpoint sob carga; `# reqs` passou de 98 a 102 nas linhas capturadas e `# fails` permaneceu em zero. `Avg`, `Min`, `Max` e `Med` são tempos HTTP em ms; `req/s` é a taxa estimada. Os 32 usuários virtuais vêm do comando, enquanto `iterations=100` significa cem hashes por **requisição**, não cem requisições.
 
 ![Percentis Locust da rodada visual extra](../evidencias/manual-05-locust-p95.png)
 
-**Figura 15 — Percentis aproximados da rodada visual extra.** Com 106 requisições no momento da captura, o Locust mostrou mediana de cerca de 21.000 ms, p95 de 24.000 ms e p99 de 25.000 ms. Esses números arredondados **não** entram no resumo das 15 repetições oficiais.
+**Figura A3 — Percentis aproximados da rodada visual extra.** Com 106 requisições no momento da captura, o Locust mostrou mediana de cerca de 21.000 ms, p95 de 24.000 ms e p99 de 25.000 ms. Esses números arredondados **não** entram na matriz definitiva de 75 execuções.
 
 ### A.5. Conferir e transferir os dados sem misturar execuções
 
-A Figura 16 registra a pasta real `results/vbox-1cpu-20261013T2036Z` **dentro da VM**. A listagem mostra as três pastas Locust e os arquivos `repN-monitor.csv`/`repN-vmstat.txt`; `rep1` contém configuração, dependências, log final e CSVs. Assim, os resultados podem ser auditados sem depender dos prints de terminal. O monitor de 1 vCPU cobriu 59, 60 e 60 amostras das janelas reais de `rep1`, `rep2` e `rep3`.
+A Figura A4 registra a pasta real `results/vbox-1cpu-20261013T2036Z` **dentro da VM**. A listagem mostra as três pastas Locust e os arquivos `repN-monitor.csv`/`repN-vmstat.txt`; `rep1` contém configuração, dependências, log final e CSVs. Assim, os resultados podem ser auditados sem depender dos prints de terminal. O monitor de 1 vCPU cobriu 59, 60 e 60 amostras das janelas reais de `rep1`, `rep2` e `rep3` dessa campanha.
 
 | Repetição de 1 vCPU | Requisições | Falhas | Vazão (req/s) | Latência média (ms) | p95 (ms) | CPU média (%) | Pico de RAM (MiB) |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -381,7 +392,7 @@ A Figura 16 registra a pasta real `results/vbox-1cpu-20261013T2036Z` **dentro da
 | 2 | 108 | 0 | 1,81 | 14.945 | 23.000 | 98,6 | 648,0 |
 | 3 | 105 | 0 | 1,76 | 14.162 | 35.000 | 100,0 | 647,9 |
 
-**Tabela A1 — Bateria registrada na VM de 1 vCPU.** As três repetições somaram 321 requisições sem falha. As medianas dessas linhas contribuem para a Tabela 6; CPU e RAM derivam apenas das janelas efetivas de carga. Fonte: [`repeticoes.csv`](../results/virtualbox-graficos/repeticoes.csv).
+**Tabela A1 — Bateria manual histórica registrada na VM de 1 vCPU.** As três repetições somaram 321 requisições sem falha. Esses valores pertencem à campanha de 32 usuários por 60 s e não entram nas tabelas ou gráficos da Seção 5; CPU e RAM derivam das janelas efetivas daquela carga. Fonte: [`repeticoes.csv`](../results/virtualbox-graficos/repeticoes.csv).
 
 Para mostrar a organização dos arquivos em um terminal da **VM**, como na captura abaixo:
 
@@ -393,7 +404,7 @@ ls -lh results/vbox-1cpu-20261013T2036Z/rep1
 
 ![Listagem dos resultados brutos da VM de 1 vCPU](../evidencias/manual-06-resultados-vm.png)
 
-**Figura 16 — Presença dos dados brutos na VM.** O prompt `osboxes@osboxes` identifica o convidado. A captura demonstra arquivos, não a execução de uma transferência naquele momento.
+**Figura A4 — Presença dos dados brutos na VM.** O prompt `osboxes@osboxes` identifica o convidado. A captura demonstra arquivos, não a execução de uma transferência naquele momento.
 
 Na execução documentada, a API, os arquivos do monitor e o `vmstat` foram gerados na VM; os diretórios Locust `rep1`–`rep3` foram gerados no hospedeiro. Para reunir tudo **na VM**, copie os diretórios Locust do hospedeiro por SSH (escolha uma pasta de cenário existente, sem sobrepor outra medição):
 
@@ -416,29 +427,95 @@ ls -lh results/importacao-vm-1cpu/vbox-1cpu-20261013T2036Z
 
 `-r` copia recursivamente e `-O` força o protocolo SCP caso o SFTP não esteja disponível. Use uma pasta de destino **nova** em uma repetição futura. A instrução explica a procedência das cópias; nenhuma transferência adicional foi realizada para este relatório.
 
-### A.6. Alterar vCPUs e preservar estados
+## Apêndice B — Execução automatizada da matriz definitiva
 
-Para reproduzir a cadeia de provisionamento, encerre a carga e desligue a VM antes de alterar o número de vCPUs; mantenha RAM, oito workers e payload inalterados. Inicie o cenário seguinte, confirme `nproc` na VM, execute o mesmo procedimento e salve os resultados antes de criar o próximo checkpoint. A cadeia documentada em `cpu__bound_2cpu` é:
+A matriz analisada neste relatório foi conduzida pelo orquestrador [`run_demand_curve.py`](../scripts/run_demand_curve.py), com Locust no hospedeiro e `monitor.py`/`vmstat` na VM. A Figura B1 mostra o fluxo; a Figura B3 mostra onde os dados ficam. **Esses dois esquemas são explicativos, não capturas de tela da execução.** O Apêndice A conserva as capturas autênticas da execução manual histórica.
 
-```text
-2 vCPUs: cpu2_results → 4 vCPUs: cpu4_results →
-6 vCPUs: cpu6_results → 8 vCPUs: cpu8_results → cpu8_final
-```
+![Fluxo da execução automatizada e da análise](figuras/cpu-bound/apendice-fluxo-execucao.png)
 
-Na cadeia 2–8 vCPUs, o projeto estava em `/home/osboxes/atividade-2/cpu-bound`, enquanto na VM separada de 1 vCPU estava em `/home/osboxes/atividade-2-git/cpu-bound`; ajuste os comandos do Apêndice A ao caminho efetivo. Na interface do VirtualBox, crie o snapshot **após** concluir e salvar os arquivos do cenário correspondente, com a VM desligada, antes de mudar a contagem de vCPUs para o próximo. O nome de cada snapshot identifica o estado ao fim daquele provisionamento.
+**Figura B1 — Fluxo da bateria automatizada.** Os cinco cenários foram executados sequencialmente, cada um com 15 execuções (cinco demandas × três repetições); a análise posterior lê os CSVs preservados. Fonte: scripts e diretórios citados neste apêndice.
 
-As repetições complementares 4 e 5, necessárias após problemas de cobertura do monitor, foram acrescentadas **depois** do snapshot `cpu8_results`. Por isso, `cpu8_final` e o disco final da cadeia 2–8 contêm o conjunto corrigido, mas os snapshots anteriores não contêm todas essas correções. A VM de 1 vCPU foi outra instância, baseada na mesma imagem. Um VDI isolado guarda o estado atual do disco, **não** a árvore de snapshots; para entregar os checkpoints seria necessário preservar a pasta completa da VM e suas dependências ou exportar os estados individualmente. Para entregar um único disco reproduzível, use o estado final independente e configure manualmente 8 vCPUs, 1.024 MiB, NAT e as duas regras de portas ao importar. [PENDENTE: captura da árvore de snapshots, se exigida como evidência visual.] [PENDENTE: confirmar e documentar se o VDI final da cadeia 2–8 também recebeu a pasta `results/vbox-1cpu-20261013T2036Z`; o repositório local contém os cinco cenários, mas a presença de todos eles em **um único VDI** não está comprovada.]
+### B.1. Preparar e executar um cenário
 
-### A.7. Regenerar gráficos e auditar fontes
-
-No **hospedeiro**, com os cinco diretórios `results/vbox-*` presentes, instale as dependências de análise e execute o script existente:
+No **hospedeiro**, prepare o ambiente para executar o Locust e o orquestrador. Os pacotes de análise também permitem rodar a suíte completa de testes:
 
 ```bash
+cd /caminho/para/atividade-2/cpu-bound
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip install -r requirements-analysis.txt
-.venv/bin/python scripts/plot_virtualbox_results.py \
-  --input results --output results/virtualbox-graficos
+.venv/bin/python -m pip check
 ```
 
-O script lê os dados brutos sem modificá-los, audita 19 execuções, seleciona 15 e grava seis figuras em PNG, SVG e PDF, além de `repeticoes.csv`, `resumo_por_cpu.csv` e `auditoria.csv`. As figuras exibidas neste documento são os PNGs já existentes. Os logs finais e CSVs permitem conferir solicitações, falhas, séries temporais e recursos; a seleção das repetições está implementada em [`scripts/virtualbox_analysis.py`](../scripts/virtualbox_analysis.py) e coberta por [`tests/test_virtualbox_analysis.py`](../tests/test_virtualbox_analysis.py) e [`tests/test_plot_virtualbox_results.py`](../tests/test_plot_virtualbox_results.py). Esses testes de análise foram acrescentados ao repositório local depois da suíte de 34 testes registrada no clone da VM de 1 vCPU.
+Com a VM do cenário e a API ligadas, confira no **hospedeiro** o acesso SSH e o endpoint de saúde. O orquestrador confere estado, vCPUs, RAM, acesso ao projeto na VM e processo Uvicorn configurado com oito workers antes de criar os resultados. As capturas das Figuras 2–6 ilustram a preparação e conferência de serviços na VM de 1 vCPU.
 
-Para que este Markdown seja renderizado com as figuras e os resultados sejam auditáveis após a entrega, inclua os arquivos de `results/vbox-*`, `results/virtualbox-graficos/`, `evidencias` e as capturas de configuração juntamente com o documento. A remoção de uma regra de `.gitignore` torna os arquivos elegíveis ao versionamento, mas **não** os adiciona automaticamente ao Git.
+```bash
+ssh -p 2222 osboxes@127.0.0.1
+curl -fsS http://127.0.0.1:8000/health
+```
+
+Para conferir uma VM recém-criada de 1 vCPU, execute primeiro o **smoke test** na pasta `cpu-bound` do hospedeiro:
+
+```bash
+export CPU_BOUND_VM_NAME="Nome_Que_Voce_Criou_A_VM"
+export CPU_BOUND_REMOTE_PROJECT="/home/osboxes/atividade-2-git/cpu-bound"
+.venv/bin/python scripts/run_demand_curve.py --vcpus 1 --smoke
+```
+
+![Terminal do hospedeiro ao concluir o smoke test automatizado](../evidencias/bateria_teste_smoke.png)
+
+**Figura B2 — Smoke test automatizado.** A captura registra um usuário, oito segundos, 4.103 respostas e zero falhas na VM de validação. Esse teste usa 1 MiB × 1 iteração e não integra a matriz definitiva.
+
+Substitua `Nome_Que_Voce_Criou_A_VM` pelo nome exato exibido no VirtualBox e ajuste `CPU_BOUND_REMOTE_PROJECT` se o clone do repositório estiver em outro caminho **dentro da VM**. Defina essas variáveis no terminal do **hospedeiro**, onde o script é executado. Sem elas, `--vcpus 1` seleciona a VM experimental `cpu_Bound`; as opções `--vm-name` e `--remote-project` têm prioridade sobre o ambiente.
+
+Para executar uma **nova bateria completa** no mesmo cenário, retire `--smoke`:
+
+```bash
+.venv/bin/python scripts/run_demand_curve.py --vcpus 1
+```
+
+Esse comando produz 15 execuções de 120 s (cinco demandas × três repetições). Não o execute apenas para conferir o apêndice, pois as 75 execuções definitivas já estão preservadas. Para reproduzir outro provisionamento, desligue a VM, ajuste as vCPUs e confirme o estado correto antes de executar o comando com o novo valor de `--vcpus`.
+
+Os parâmetros padrão do script são cinco demandas (1, 2, 4, 8 e 16 usuários), três repetições de 120 s para cada demanda, payload de 10 MiB × 100 iterações, rampa de 32 usuários/s e gerador fixado à CPU lógica 0 do hospedeiro. A API permanece com oito workers e 1.024 MiB de RAM.
+
+A opção `--smoke` produz uma medição curta em pasta separada, fora da matriz. O script confirma os pré-requisitos, cria um diretório inédito, executa as repetições **em série** e copia os arquivos de monitoramento da VM. Ele recusa sobrescrever resultados anteriores.
+
+### B.2. Localizar e conferir os dados
+
+| vCPUs | Diretório da bateria definitiva | Execuções válidas |
+| ---: | --- | ---: |
+| 1 | [`demand-vbox-1cpu-20261014T081757Z-421203`](../results/demand-vbox-1cpu-20261014T081757Z-421203/) | 15 |
+| 2 | [`demand-vbox-2cpu-20261014T085949Z-444834`](../results/demand-vbox-2cpu-20261014T085949Z-444834/) | 15 |
+| 4 | [`demand-vbox-4cpu-20261014T094305Z-463098`](../results/demand-vbox-4cpu-20261014T094305Z-463098/) | 15 |
+| 6 | [`demand-vbox-6cpu-20261014T101658Z-490172`](../results/demand-vbox-6cpu-20261014T101658Z-490172/) | 15 |
+| 8 | [`demand-vbox-8cpu-20261014T104931Z-504345`](../results/demand-vbox-8cpu-20261014T104931Z-504345/) | 15 |
+
+**Tabela B1 — Fontes da matriz de 75 execuções.** O smoke test e os ensaios manuais de 32 usuários estão em pastas distintas e não integram essa análise.
+
+![Organização dos arquivos de uma bateria automatizada](figuras/cpu-bound/apendice-organizacao-dados.png)
+
+**Figura B3 — Organização dos dados brutos.** Cada bateria reúne cinco pastas de demanda `uN`, cada uma com três pastas `repN`. `requests.csv` registra respostas individuais, `locust_stats_history.csv` contém os contadores periódicos, e `monitor.csv` e `vmstat.txt` contêm medições da VM. O `manifest.json` e os arquivos `config.txt` documentam parâmetros e procedência.
+
+Os arquivos originais permanecem em `results/`. Para conferir uma execução sem iniciar carga nova, no hospedeiro execute:
+
+```bash
+ls -lh results/demand-vbox-8cpu-20261014T104931Z-504345
+ls -lh results/demand-vbox-8cpu-20261014T104931Z-504345/u16/rep3
+```
+
+### B.3. Auditar e regenerar os gráficos
+
+O script lê os CSVs preservados e recusa sobrescrever a saída existente. Para produzir uma cópia independente da análise, use nomes de destino novos:
+
+```bash
+.venv/bin/python scripts/build_demand_report.py \
+  --case results/demand-vbox-1cpu-20261014T081757Z-421203 \
+  --case results/demand-vbox-2cpu-20261014T085949Z-444834 \
+  --case results/demand-vbox-4cpu-20261014T094305Z-463098 \
+  --case results/demand-vbox-6cpu-20261014T101658Z-490172 \
+  --case results/demand-vbox-8cpu-20261014T104931Z-504345 \
+  --output results/demand-vbox-analysis-verificacao \
+  --figures docs/figuras/cpu-bound-verificacao
+```
+
+A [auditoria](../results/demand-vbox-analysis/auditoria.csv) registra a validade dos ensaios. [`repeticoes.csv`](../results/demand-vbox-analysis/repeticoes.csv) guarda as métricas por execução; [`resumo.csv`](../results/demand-vbox-analysis/resumo.csv) resume as 25 combinações. As taxas temporais derivadas estão em [`rps-temporal-repeticoes.csv`](../results/demand-vbox-analysis/rps-temporal-repeticoes.csv) e [`rps-temporal-resumo.csv`](../results/demand-vbox-analysis/rps-temporal-resumo.csv). Os gráficos da Seção 5 são reproduzíveis a partir desses arquivos e dos CSVs brutos das baterias da Tabela B1.

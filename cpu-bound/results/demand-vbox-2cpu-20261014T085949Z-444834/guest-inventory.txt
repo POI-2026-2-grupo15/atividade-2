@@ -1,0 +1,6 @@
+vcpus=2
+api_pid=1615
+Python 3.10.12
+               total        used        free      shared  buff/cache   available
+Mem:             957         462          76           1         418         350
+Swap:          13141           0       13141

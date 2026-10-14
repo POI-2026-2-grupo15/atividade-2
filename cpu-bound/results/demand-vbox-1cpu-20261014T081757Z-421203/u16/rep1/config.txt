@@ -1,0 +1,10 @@
+timestamp_utc=2026-10-14T08:43:16Z
+host=http://127.0.0.1:8000
+users=16
+spawn_rate=32
+duration=120s
+data_size_mb=10
+iterations=100
+wait_seconds=0
+request_log=/home/arthur/faculdade/poi/atividade-2/cpu-bound/results/demand-vbox-1cpu-20261014T081757Z-421203/u16/rep1/requests.csv
+Python 3.12.3

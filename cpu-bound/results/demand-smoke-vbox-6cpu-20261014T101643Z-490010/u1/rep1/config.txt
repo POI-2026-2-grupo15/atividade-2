@@ -1,0 +1,10 @@
+timestamp_utc=2026-10-14T10:16:45Z
+host=http://127.0.0.1:8000
+users=1
+spawn_rate=1
+duration=8s
+data_size_mb=1
+iterations=1
+wait_seconds=0
+request_log=/home/arthur/faculdade/poi/atividade-2/cpu-bound/results/demand-smoke-vbox-6cpu-20261014T101643Z-490010/u1/rep1/requests.csv
+Python 3.12.3

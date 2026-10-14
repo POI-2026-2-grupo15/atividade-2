@@ -2,8 +2,11 @@
 
 import math
 import os
+from pathlib import Path
 
-from locust import HttpUser, constant, task
+from locust import HttpUser, constant, events, task
+
+from load_tests.request_log import RequestCsvLogger
 
 
 DATA_SIZE_MB = int(os.getenv("DATA_SIZE_MB", "10"))
@@ -13,6 +16,13 @@ if not 1 <= DATA_SIZE_MB <= 32 or not 1 <= ITERATIONS <= 1000 or DATA_SIZE_MB * 
     raise ValueError("Carga fora dos limites: 1–32 MiB, 1–1000 iterações, produto <= 8192")
 if not math.isfinite(WAIT_SECONDS) or WAIT_SECONDS < 0:
     raise ValueError("WAIT_SECONDS deve ser finito e >= 0")
+
+if os.getenv("REQUEST_LOG"):
+    _request_log = RequestCsvLogger(Path(os.environ["REQUEST_LOG"]))
+
+    @events.request.add_listener
+    def _record_request(request_type, name, response_time, exception, **_kwargs):
+        _request_log.write(request_type, name, response_time, exception)
 
 
 class BenchmarkUser(HttpUser):

@@ -1,0 +1,4 @@
+[2026-10-14 05:49:32,776] arthur-A320M-S2H/INFO/locust.main: Starting Locust 2.37.14
+[2026-10-14 05:49:32,776] arthur-A320M-S2H/INFO/locust.main: Run time limit set to 120 seconds
+[2026-10-14 05:49:32,777] arthur-A320M-S2H/INFO/locust.runners: Ramping to 32 users at a rate of 32.00 per second
+[2026-10-14 05:49:32,779] arthur-A320M-S2H/INFO/locust.runners: All users spawned: {"BenchmarkUser": 32} (32 total users)

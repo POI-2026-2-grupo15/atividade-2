@@ -13,6 +13,7 @@ export WAIT_SECONDS="${WAIT_SECONDS:-0}"
 
 mkdir -p -- "$(dirname -- "$OUTPUT_DIR")"
 mkdir -- "$OUTPUT_DIR"
+export REQUEST_LOG="${REQUEST_LOG:-$OUTPUT_DIR/requests.csv}"
 cat > "$OUTPUT_DIR/config.txt" <<EOF
 timestamp_utc=$(date -u +%FT%TZ)
 host=$HOST
@@ -22,6 +23,7 @@ duration=$DURATION
 data_size_mb=$DATA_SIZE_MB
 iterations=$ITERATIONS
 wait_seconds=$WAIT_SECONDS
+request_log=$REQUEST_LOG
 EOF
 python --version >> "$OUTPUT_DIR/config.txt"
 python -m pip freeze > "$OUTPUT_DIR/dependencies.txt"

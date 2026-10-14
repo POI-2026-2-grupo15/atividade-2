@@ -1,0 +1,34 @@
+{
+  "created_utc": "2026-10-14T08:18:16.787079+00:00",
+  "vm_name": "cpu_Bound",
+  "vcpus": 1,
+  "vm_provenance": "separate-1cpu-vm",
+  "remote_project": "/home/osboxes/atividade-2-git/cpu-bound",
+  "users_requested": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "users": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "repetitions": 3,
+  "duration_seconds": 120,
+  "data_size_mb": 10,
+  "iterations": 100,
+  "spawn_rate": 32,
+  "wait_seconds": 0,
+  "workers": 8,
+  "ram_mib": 1024,
+  "warmup_seconds": 30,
+  "cooldown_seconds": 5,
+  "smoke": false,
+  "host": "http://127.0.0.1:8000"
+}

@@ -1,0 +1,26 @@
+{
+  "created_utc": "2026-10-14T10:49:31.464360+00:00",
+  "vm_name": "cpu__bound_2cpu",
+  "vcpus": 8,
+  "vm_provenance": "2-to-8cpu-snapshot-chain",
+  "remote_project": "/home/osboxes/atividade-2/cpu-bound",
+  "users": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "repetitions": 3,
+  "duration_seconds": 120,
+  "data_size_mb": 10,
+  "iterations": 100,
+  "spawn_rate": 32,
+  "wait_seconds": 0,
+  "workers": 8,
+  "ram_mib": 1024,
+  "warmup_seconds": 30,
+  "cooldown_seconds": 5,
+  "smoke": false,
+  "host": "http://127.0.0.1:8000"
+}
