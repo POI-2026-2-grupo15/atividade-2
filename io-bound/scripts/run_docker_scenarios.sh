@@ -8,6 +8,7 @@ IMAGE="${IMAGE:-io-bound:experiment}"
 RESULTS="${RESULTS:-$PROJECT_DIR/results}"
 SCENARIOS="${SCENARIOS:-vcpu1-ram1g:1:1g vcpu2-ram1g:2:1g vcpu4-ram1g:4:1g vcpu2-ram2g:2:2g}"
 export USERS_LIST="${USERS_LIST:-1 2 4 8 16 32 64}" DURATION="${DURATION:-30s}" PAUSE="${PAUSE:-5}"
+export SIZE_KB="${SIZE_KB:-1024}" FSYNC="${FSYNC:-1}"
 
 docker build -q -t "$IMAGE" "$PROJECT_DIR"
 docker network create io-bound-net >/dev/null 2>&1 || true
@@ -24,7 +25,7 @@ for scenario in $SCENARIOS; do
     sleep 3
     docker run --rm --network io-bound-net -v "$RESULTS:/app/results" \
         -e SCENARIO="$name" -e HOST=http://io-api:8000 -e OUTPUT_ROOT="results/$name" \
-        -e USERS_LIST -e DURATION -e PAUSE "$IMAGE" bash scripts/run_demand_curve.sh
+        -e USERS_LIST -e DURATION -e PAUSE -e SIZE_KB -e FSYNC "$IMAGE" bash scripts/run_demand_curve.sh
     docker stop io-api >/dev/null
     docker rm io-api >/dev/null
     echo "$name: cpus=$cpus memory=$memory" >> "$RESULTS/scenarios.txt"
