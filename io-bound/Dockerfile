@@ -1,8 +1,8 @@
 FROM python:3.10-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-analysis.txt ./
+RUN python -m pip install --no-cache-dir -r requirements.txt -r requirements-analysis.txt
 COPY app ./app
 COPY scripts ./scripts
 COPY load_tests ./load_tests
