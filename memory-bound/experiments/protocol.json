@@ -1,0 +1,16 @@
+{
+  "ram_mib": [500, 1024, 2048, 4096],
+  "users": [1, 2, 4, 8],
+  "repetitions": 3,
+  "cpus": 6,
+  "workers": 6,
+  "warmup_seconds": 10,
+  "measurement_seconds": 60,
+  "pause_seconds": 5,
+  "monitor_interval_seconds": 0.5,
+  "request_timeout_seconds": 30,
+  "dataset": "datasets/grande",
+  "swap": false,
+  "order": "rotate demand and RAM; reverse RAM on even rounds",
+  "image": "memory-bound:experiment"
+}

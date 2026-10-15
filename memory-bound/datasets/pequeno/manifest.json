@@ -1,0 +1,38 @@
+{
+  "format_version": 1,
+  "generator_version": 1,
+  "parameters": {
+    "unique_records": 8800,
+    "duplicates": 800,
+    "description_bytes": 256,
+    "files": 4
+  },
+  "files": [
+    {
+      "name": "cadastro-01.csv",
+      "size_bytes": 756026,
+      "sha256": "f11d27f1ef112285457c1c45c9604c82d766cefbb52e323654ba018349fbed82"
+    },
+    {
+      "name": "cadastro-02.csv",
+      "size_bytes": 756026,
+      "sha256": "be7e3520e3608f4231ca8813cebda41b79a77105f12d68abd1a071cde4b6cc31"
+    },
+    {
+      "name": "cadastro-03.csv",
+      "size_bytes": 756026,
+      "sha256": "4a7072900bc98e2950da2aa217f6cef77de84f4bb54d77469a977672c137ede7"
+    },
+    {
+      "name": "cadastro-04.csv",
+      "size_bytes": 756026,
+      "sha256": "206df81bb89e0fafdaebc83bdfb6dc4685ff450478bd54ea2f3c4f33510c0213"
+    }
+  ],
+  "expected": {
+    "files_processed": 4,
+    "records_received": 9600,
+    "unique_records": 8800,
+    "replaced_occurrences": 800
+  }
+}

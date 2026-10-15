@@ -1,0 +1,6 @@
+*
+!requirements.txt
+!app/
+!app/*.py
+!scripts/
+!scripts/monitor.py
