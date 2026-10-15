@@ -161,6 +161,30 @@ RESULTS=results/docker bash scripts/run_docker_scenarios.sh
 python scripts/plot_results.py --results results/docker --output results/docker/plots
 ```
 
+### Sessão personalizada (um comando)
+
+`scripts/experiment.sh` roda os cenários escolhidos e gera os gráficos dentro do
+container, sem precisar de Python 3.10 no hospedeiro. Cada sessão fica em
+`results/<nome>/`, com `sessao.txt` (parâmetros), os CSVs e `plots/` (gráficos e
+`summary.csv`). No macOS, a pasta de gráficos é aberta no final. Exemplos e casos de uso em
+[docs/como-rodar-experimentos.md](docs/como-rodar-experimentos.md).
+
+```bash
+bash scripts/experiment.sh -h                     # todas as opções
+bash scripts/experiment.sh                        # padrão: 2 cenários, 1/4/16 usuários, 10 s (~1,5 min)
+bash scripts/experiment.sh -c "vcpu1:1:1g vcpu4:4:1g" -u "1 8 32" -d 20s -n aula
+```
+
+| Opção | Padrão | Significado |
+|---|---|---|
+| `-c`, `--cenarios` | `vcpu1-ram1g:1:1g vcpu2-ram1g:2:1g` | cenários `nome:cpus:ram` |
+| `-u`, `--usuarios` | `1 4 16` | níveis de demanda |
+| `-d`, `--duracao` | `10s` | tempo de cada nível |
+| `-p`, `--pausa` | `2` | segundos entre níveis |
+| `-k`, `--tamanho` | `1024` | KiB por requisição |
+| `-f`, `--sem-fsync` | desligado | desliga o fsync |
+| `-n`, `--nome` | `sessao-<data-hora>` | pasta da sessão em `results/` |
+
 Os resultados e a análise estão em [docs/relatorio-final.md](docs/relatorio-final.md).
 
 ## Interpretação

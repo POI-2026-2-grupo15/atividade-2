@@ -18,7 +18,7 @@ Este repositório reúne três aplicações HTTP usadas para estudar como a dema
 | [IO-bound](io-bound/) | Escrita, sincronização e leitura de arquivos, com foco no acesso a disco. | [Relatório IO-bound](io-bound/docs/relatorio-final.md) |
 | [Memory-bound](memory-bound/) | Identificação e eliminação de cadastros duplicados em CSVs, com registros mantidos em memória. | [Relatório Memory-bound](memory-bound/output/pdf/relatorio-memory-bound.md) |
 
-O relatório de **CPU-bound** apresenta medições em uma VM VirtualBox com 1, 2, 4, 6 e 8 vCPUs, variando a quantidade de usuários simultâneos. O relatório de **IO-bound** documenta um piloto local em Docker com diferentes limites de CPU e memória. Como os ambientes são distintos, seus valores absolutos de desempenho não devem ser comparados diretamente.
+O relatório de **CPU-bound** apresenta medições em uma VM VirtualBox com 1, 2, 4, 6 e 8 vCPUs, variando a quantidade de usuários simultâneos. O relatório de **IO-bound** documenta um piloto local em Docker com diferentes limites de CPU e memória. O estudo de **Memory-bound** usa arquivos CSV e cenários Docker com diferentes limites de RAM e quantidades de usuários. Como os ambientes e as cargas são distintos, seus valores absolutos de desempenho não devem ser comparados diretamente.
 
 Os relatórios descrevem os métodos, resultados, gráficos e limites de cada experimento. Para executar as aplicações e reproduzir os testes, consulte o [Apêndice B do relatório CPU-bound](cpu-bound/docs/relatorio-cpu-bound.md#apêndice-b--execução-automatizada-da-matriz-definitiva) e o [README de IO-bound](io-bound/README.md).
 

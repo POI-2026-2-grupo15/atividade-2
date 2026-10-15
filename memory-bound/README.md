@@ -2,7 +2,7 @@
 
 Backend em Python e FastAPI que recebe arquivos CSV em `POST /memory-test`
 e cadastra por ID. A última ocorrência de cada ID substitui a
-anterior. Os registros únicos permanecem em memória até o fim da requisição;
+anterior. Os registros únicos permanecem em memória até o fim da requisição.
 
 Os CSVs usam o cabeçalho `id,name,email,description` e são enviados no campo
 multipart `files`. A resposta informa quantidades recebidas, únicas e
