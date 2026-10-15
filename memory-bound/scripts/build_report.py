@@ -3,6 +3,7 @@
 import argparse
 from io import BytesIO
 import json
+import os
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -66,8 +67,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--analysis', type=Path, default=PROJECT / 'output/analysis')
     parser.add_argument('--pdf', type=Path, default=PROJECT / 'output/pdf/relatorio-memory-bound.pdf')
-    parser.add_argument('--markdown', type=Path, default=PROJECT / 'docs/relatorio-memory-bound.md')
+    parser.add_argument('--markdown', type=Path)
     args = parser.parse_args()
+    if args.markdown is None:
+        args.markdown = args.pdf.with_suffix('.md')
     audit = json.loads((args.analysis / 'audit.json').read_text())
     if not audit['complete_matrix'] or audit['issues'] or audit['observed_runs'] != 48:
         raise SystemExit('O relatório final exige 48 execuções e auditoria sem divergências')
@@ -180,7 +183,8 @@ def main():
     story.append(Image(summary_figure(rows, groups), width=17 * cm, height=17 * cm * 4.55 / 6.7))
     para('Figura 1. Médias ± desvio padrão; pontos claros mostram repetições. Cruzes indicam '
          'coletas de recursos com lacunas, excluídas das médias de CPU/memória.', 'SmallCompact')
-    markdown.append('![Demanda, desempenho e recursos](../output/analysis/painel.png)\n')
+    figure_path = Path(os.path.relpath(args.analysis / 'painel.png', args.markdown.parent)).as_posix()
+    markdown.append(f'![Demanda, desempenho e recursos]({figure_path})\n')
     high, one = index[(4096, 8)], index[(4096, 1)]
     para('Com 500 MiB, houve OOM a partir de dois usuários; com 1 GiB, em oito. Em 2 e 4 GiB, '
          'não houve falhas ou OOM até oito usuários. Ampliar RAM evitou mortes por falta de memória '
@@ -195,8 +199,6 @@ def main():
          'causou falhas e queda da vazão válida. Os resultados valem para este hardware e dataset; '
          'parsing, GIL, upload e arquivos temporários também influenciam o desempenho. Latências '
          'consideram somente sucessos completos e devem ser lidas junto de falhas e pendentes.')
-    para('Dados completos: results/' + Path(audit['input']).name + '. Tabelas por cenário: '
-         'output/analysis/comparison.csv.', 'SmallCompact')
 
     heading('Por que usar seis CPUs e seis workers?')
     para('Antes dos testes de RAM, foram comparadas duas configurações de CPU/workers, '

@@ -63,4 +63,4 @@ Gerar o relatório usa os dados salvos e não executa novos testes.
 
 - Tabelas e gráficos: `output/analysis/`.
 - PDF: [relatorio-memory-bound.pdf](output/pdf/relatorio-memory-bound.pdf).
-- Markdown: [relatorio-memory-bound.md](docs/relatorio-memory-bound.md).
+- Markdown: [relatorio-memory-bound.md](output/pdf/relatorio-memory-bound.md).
