@@ -1,0 +1,9 @@
+# Somente os arquivos necessários para executar a API entram no contexto.
+**
+!Dockerfile
+!requirements-runtime.txt
+!app/
+!app/**
+**/__pycache__/
+**/*.py[cod]
+**/.env*
