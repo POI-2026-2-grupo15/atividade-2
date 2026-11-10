@@ -45,6 +45,28 @@ O endpoint `/benchmark` executa o cálculo síncrono diretamente no worker que r
 
 **Figura 2 — API em funcionamento.** A resposta de `/health` contém `status: ok`; `/benchmark` apresenta o algoritmo, os parâmetros 10 MiB e 100 iterações, o total lógico de 1.000 MiB, o tempo de execução e o digest. O tempo da chamada isolada exibida não é a latência HTTP sob a carga concorrente do Locust.
 
+### 2.1. Distribuição com Docker
+
+A aplicação também foi conteinerizada e sua imagem foi publicada no
+[Docker Hub — arthurgb469/cpu-bound](https://hub.docker.com/r/arthurgb469/cpu-bound/tags),
+com a tag `atividade-4` para Linux/amd64. Para executar a versão publicada:
+
+```bash
+docker pull arthurgb469/cpu-bound:atividade-4
+docker run -d --name cpu-bound -p 8000:8000 arthurgb469/cpu-bound:atividade-4
+curl --fail http://localhost:8000/health
+```
+
+A documentação interativa fica em http://localhost:8000/docs. O
+[`README da aplicação`](../README.md) descreve como construir a imagem,
+publicá-la no Docker Hub, acompanhar os logs e encerrar o container.
+
+A imagem utiliza Python 3.12 slim, executa sem privilégios de root e inclui um
+healthcheck em `/health`. O comando padrão inicia um worker Uvicorn; os
+experimentos VirtualBox descritos a seguir foram realizados com oito workers.
+A validação da imagem incluiu os 34 testes automatizados da API e do hashing,
+além de chamadas HTTP reais de saúde, benchmark e upload de arquivo de 2 MiB.
+
 ## 3. Ambiente experimental
 
 Os artefatos documentam cinco configurações VirtualBox: 1, 2, 4, 6 e 8 vCPUs. Em todas, a memória atribuída foi de 1.024 MiB e a API foi iniciada com oito workers Uvicorn.
