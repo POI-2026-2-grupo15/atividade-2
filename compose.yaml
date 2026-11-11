@@ -1,0 +1,28 @@
+name: atividade-4
+
+services:
+  cpu-bound:
+    image: docker.io/arthurgb469/cpu-bound:atividade-4
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  io-bound:
+    image: docker.io/arthurgb469/io-bound:atividade-4
+    ports:
+      - "8001:8000"
+    environment:
+      IO_DATA_DIR: /data
+    volumes:
+      - io-bound-data:/data
+    restart: unless-stopped
+
+  memory-bound:
+    image: docker.io/usuario-do-colega/memory-bound:atividade-4
+    profiles: [memory]
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
+
+volumes:
+  io-bound-data:
