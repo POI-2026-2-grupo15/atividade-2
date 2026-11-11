@@ -18,8 +18,7 @@ services:
     restart: unless-stopped
 
   memory-bound:
-    image: docker.io/usuario-do-colega/memory-bound:atividade-4
-    profiles: [memory]
+    image: docker.io/victorxluna/memory-bound:atv4
     ports:
       - "8002:8000"
     restart: unless-stopped

@@ -151,6 +151,30 @@ se ela vier zerada, os relógios estão desencontrados.
 | `FSYNC` | `1` | `0` desliga o fsync |
 | `HOST` | `http://127.0.0.1:8000` | URL da API |
 
+## Imagem Docker
+
+A imagem inclui a API, os testes e as ferramentas de carga, monitoramento e
+análise usadas pelos experimentos. O comando padrão inicia o Uvicorn na porta
+8000 com um worker; o healthcheck consulta `/health`.
+
+```bash
+docker build -t arthurgb469/io-bound:atividade-4 .
+docker run --rm arthurgb469/io-bound:atividade-4 python -m pytest -q
+docker run -d --name io-bound -p 8000:8000 \
+  --mount type=volume,src=io-bound-data,dst=/data \
+  -e IO_DATA_DIR=/data arthurgb469/io-bound:atividade-4
+curl http://127.0.0.1:8000/health
+curl -H 'Content-Type: application/json' -d '{"size_kb":1024}' http://127.0.0.1:8000/io
+docker stop io-bound
+docker rm io-bound
+```
+
+Para usar a imagem publicada, substitua o build por
+`docker pull arthurgb469/io-bound:atividade-4`. O volume recebe os arquivos em
+`/data/io-bound-data`; mantenha-o em disco, sem usar tmpfs, para preservar o
+perfil de I/O. A publicação, após os testes e o login no Docker Hub, é feita
+com `docker push arthurgb469/io-bound:atividade-4`.
+
 ## Piloto local com Docker
 
 Simula os 4 cenários com limites de CPU/RAM do Docker. A API e o monitor
